@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+/* Paleta editorial — caderno preto sobre papel */
+:root {
+  --kraft: #ECE7DC;   /* fundo externo, papel kraft */
+  --paper: #FAF8F3;   /* a "página" central */
+  --ink: #1C1B18;     /* tinta */
+  --muted: #8C8578;   /* texto secundário */
+  --hairline: #D9D2C2;/* linhas finas */
+  --tan: #D8C3A3;     /* fita adesiva */
+  --tan-soft: #EFE5D4;
+  --alert: #9C5148;   /* atrasos */
+}
+
+@theme inline {
+  --color-kraft: var(--kraft);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-hairline: var(--hairline);
+  --color-tan: var(--tan);
+  --color-tan-soft: var(--tan-soft);
+  --color-alert: var(--alert);
+  --font-sans: var(--font-archivo), "Archivo", system-ui, sans-serif;
+  --font-serif: var(--font-garamond), "EB Garamond", Georgia, serif;
+}
+
+* {
+  border-radius: 0 !important; /* cantos retos em tudo, como papel cortado */
+}
+
+body {
+  background: var(--kraft);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Barra preta de cabeçalho de seção, estilo "MONEY IN" de planner impresso */
+.section-bar {
+  background: var(--ink);
+  color: var(--paper);
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Checkbox quadrado de tinta */
+.ink-check {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  border: 1.5px solid var(--ink);
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--paper);
+  cursor: pointer;
+}
+.ink-check[data-state="done"] { background: var(--ink); }
+.ink-check[data-state="partial"] { background: var(--paper); color: var(--ink); }
+
+/* Campos de formulário discretos, só com linha inferior */
+.ink-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 12px;
+  padding: 3px 2px;
+  color: var(--ink);
+  outline: none;
+  width: 100%;
+}
+.ink-input:focus { border-bottom-color: var(--ink); }
+.ink-input::placeholder { color: var(--muted); font-style: italic; }
+
+select.ink-input { border: 1px solid var(--hairline); padding: 4px; }
+textarea.ink-input { border: 1px solid var(--hairline); padding: 6px; }
+
+/* Botão de contorno fino */
+.ink-btn {
+  border: 1px solid var(--ink);
+  background: transparent;
+  color: var(--ink);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ink-btn:hover { background: var(--ink); color: var(--paper); }
+.ink-btn-solid {
+  background: var(--ink);
+  color: var(--paper);
+}
+.ink-btn-solid:hover { background: #3a382f; }
+
+/* Ações que só aparecem quando o mouse passa na linha */
+.row-actions { opacity: 0; transition: opacity 0.12s; }
+.group-row:hover .row-actions, .group-row:focus-within .row-actions { opacity: 1; }
+@media (hover: none) { .row-actions { opacity: 1; } } /* no celular, sempre visíveis */
+
+.hairline-b { border-bottom: 1px solid var(--hairline); }
+
+.font-serif-note { font-family: var(--font-serif); font-style: italic; }
