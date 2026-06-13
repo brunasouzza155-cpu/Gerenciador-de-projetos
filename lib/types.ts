@@ -17,8 +17,9 @@ export type Health = 0 | 1 | 2;
 // Tag de uma tarefa:
 // "rapida"          → aparece na seção "Tarefas Rápidas" do dia correspondente
 // "acompanhamento"  → aparece no painel "Acompanhamentos" com a data tagDueDate
-// "atividade"       → classificação visual de atividade dentro do projeto
-export type TaskTag = "rapida" | "acompanhamento" | "atividade" | null;
+// "atividade"       → aparece no bloco "Atividades" da página principal
+// "agenda"          → compromisso de agenda / evento
+export type TaskTag = "rapida" | "acompanhamento" | "atividade" | "agenda" | null;
 
 export interface Project {
   id: string;

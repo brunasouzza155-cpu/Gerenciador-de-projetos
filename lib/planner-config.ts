@@ -2,7 +2,7 @@
 
 export type BlockType =
   | "priorities" | "today" | "quick-tasks" | "projects"
-  | "planner" | "upcoming" | "followups" | "summary" | "goals"
+  | "planner" | "upcoming" | "followups" | "activities" | "summary" | "goals"
   | "pomodoro" | "countdown" | "clock"
   | "quote" | "weather" | "water-tracker"
   | "shopping" | "reading" | "weekly-goals" | "habits"
@@ -62,7 +62,8 @@ export const DEFAULT_BLOCKS: PlannerBlock[] = [
   { id: "planner",        type: "planner",        emoji: "📆", label: "Calendário / Planner",     visible: true,  column: 3, order: 0 },
   { id: "upcoming",       type: "upcoming",       emoji: "🔔", label: "Próximas entregas",         visible: true,  column: 3, order: 1 },
   { id: "followups",      type: "followups",      emoji: "👁",  label: "Acompanhamentos",          visible: true,  column: 3, order: 2 },
-  { id: "summary",        type: "summary",        emoji: "📊", label: "Resumo e Metas",            visible: true,  column: 3, order: 3 },
+  { id: "activities",     type: "activities",     emoji: "📋", label: "Atividades",               visible: true,  column: 3, order: 3 },
+  { id: "summary",        type: "summary",        emoji: "📊", label: "Resumo e Metas",            visible: true,  column: 3, order: 4 },
   { id: "shopping",       type: "shopping",       emoji: "🛒", label: "Lista de Compras",          visible: false, column: 3, order: 4 },
   { id: "reading",        type: "reading",        emoji: "📚", label: "Leituras",                 visible: false, column: 3, order: 5 },
   { id: "weekly-goals",   type: "weekly-goals",   emoji: "📋", label: "Metas da Semana",          visible: false, column: 3, order: 6 },
@@ -74,7 +75,7 @@ export const DEFAULT_BLOCKS: PlannerBlock[] = [
 export const BLOCK_CATEGORIES: { label: string; blocks: BlockType[] }[] = [
   {
     label: "Organização",
-    blocks: ["priorities", "today", "quick-tasks", "followups", "shopping", "weekly-goals"],
+    blocks: ["priorities", "today", "quick-tasks", "followups", "activities", "shopping", "weekly-goals"],
   },
   {
     label: "Projetos",

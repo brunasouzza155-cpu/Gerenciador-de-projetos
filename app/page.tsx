@@ -5,15 +5,16 @@ import { addDays, fmtLong, fmtShort, todayISO } from "@/lib/dates";
 import { projectLeaves } from "@/lib/tree";
 import { STATUS_META, STATUS_ORDER } from "@/lib/theme";
 import { useAppStore } from "@/lib/store";
-import { useModes } from "@/lib/modes";
 import type { ProjectStatus } from "@/lib/types";
 import { DayDemandsPanel, PrioritiesPanel, TodayPanel } from "@/components/DayColumn";
 import { ProjectCard, ProjectForm } from "@/components/ProjectCard";
 import { Planner } from "@/components/Planner";
 import { FollowupsPanel } from "@/components/FollowupsPanel";
+import { ActivitiesPanel } from "@/components/ActivitiesPanel";
 import { SummaryPanel, UpcomingPanel } from "@/components/SummaryColumn";
 import { AuthGate, signOut } from "@/components/AuthGate";
 import { Sidebar } from "@/components/Sidebar";
+import { WelcomeTutorial } from "@/components/WelcomeTutorial";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   ClockWidget, QuoteWidget, WaterTrackerWidget, HabitsWidget,
@@ -39,77 +40,24 @@ export default function Page() {
   return <Home mode="mock" />;
 }
 
-// ── Edit mode block wrapper ───────────────────────────────────────────────────
-function BlockWrapper({
-  block,
-  editMode,
-  onHide,
-  children,
-}: {
-  block: PlannerBlock;
-  editMode: boolean;
-  onHide: (id: string) => void;
-  children: React.ReactNode;
-}) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  if (!editMode) return <>{children}</>;
-  return (
-    <div className="relative">
-      {children}
-      <div className="absolute top-0 inset-x-0 bottom-0 pointer-events-none border-2 border-dashed border-tan opacity-60 z-10" />
-      <div className="absolute top-1 right-1 z-20 pointer-events-auto">
-        <button
-          className="bg-paper border border-hairline text-[10px] px-1.5 py-0.5 hover:border-ink shadow-sm"
-          onClick={() => setMenuOpen((o) => !o)}
-        >
-          ⋯
-        </button>
-        {menuOpen && (
-          <div
-            className="absolute right-0 top-full mt-0.5 bg-paper border border-hairline shadow-lg z-30 min-w-[140px]"
-            onMouseLeave={() => setMenuOpen(false)}
-          >
-            <div className="px-2 py-1 border-b border-hairline text-[9px] uppercase tracking-wider text-muted">
-              {block.emoji} {block.label}
-            </div>
-            <button
-              className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-tan-soft/40 flex items-center gap-2"
-              onClick={() => { onHide(block.id); setMenuOpen(false); }}
-            >
-              <span>○</span> Ocultar bloco
-            </button>
-            <a
-              href="/construtor"
-              className="block px-3 py-1.5 text-[11px] hover:bg-tan-soft/40"
-            >
-              🏗 Editar no builder
-            </a>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function Home({ mode }: { mode: "mock" | "supabase" }) {
   const store = useAppStore(mode);
-  const { modes, activeMode, setActiveModeId, setModes } = useModes();
-  const workspace = activeMode.workspace;
+  // Keep workspace for project filtering (internal, not exposed in sidebar)
+  const workspace = "trabalho" as const;
 
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [focusMode, setFocusMode] = useState(false);
   const [viewDate, setViewDate] = useState(() => todayISO());
-  const [editMode, setEditMode] = useState(false);
   const [plannerBlocks, setPlannerBlocks] = useState<PlannerBlock[]>(DEFAULT_BLOCKS);
   const [activePlannerId, setActivePlannerIdState] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
 
-  // Load planner blocks on mount
+  // Load planner config + check if tutorial should show
   useEffect(() => {
     const aid = getActivePlannerId();
     setActivePlannerIdState(aid);
@@ -117,6 +65,10 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
       setPlannerBlocks(loadPlannerBlocks(aid));
     } else {
       setPlannerBlocks(loadPlannerConfig());
+    }
+    // Show tutorial for first-time users
+    if (!localStorage.getItem("welcome_seen")) {
+      setShowTutorial(true);
     }
   }, []);
 
@@ -136,8 +88,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
       if (p.archived !== showArchived) return false;
       if (statusFilter && p.status !== statusFilter) return false;
       if (q) {
-        const inProject =
-          p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q);
+        const inProject = p.name.toLowerCase().includes(q) || p.code.toLowerCase().includes(q);
         const inTasks = store.tasks.some(
           (t) => t.projectId === p.id && t.title.toLowerCase().includes(q)
         );
@@ -160,46 +111,42 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
   const countByStatus = (s: ProjectStatus) =>
     wsProjects.filter((p) => p.status === s && p.archived === showArchived).length;
 
-  const handleModeChange = (m: typeof activeMode) => {
-    setActiveModeId(m.id);
-    setStatusFilter(null);
-    setShowArchived(false);
-  };
+  // Dynamic visible blocks
+  const activeBlocks = useMemo(
+    () => plannerBlocks.filter((b) => b.visible),
+    [plannerBlocks]
+  );
 
-  // Dynamic visible blocks respecting active mode
-  const activeBlocks = useMemo(() => {
-    return plannerBlocks.filter((b) => {
-      if (!b.visible) return false;
-      if (b.visibleModes && b.visibleModes.length > 0 && !b.visibleModes.includes(activeMode.id)) return false;
-      return true;
-    });
-  }, [plannerBlocks, activeMode]);
-
-  const col1Blocks = useMemo(() =>
-    activeBlocks.filter((b) => b.column === 1).sort((a, b) => a.order - b.order),
+  const col1Blocks = useMemo(
+    () => activeBlocks.filter((b) => b.column === 1).sort((a, b) => a.order - b.order),
     [activeBlocks]
   );
-  const col2Blocks = useMemo(() =>
-    activeBlocks.filter((b) => b.column === 2).sort((a, b) => a.order - b.order),
+  const col2Blocks = useMemo(
+    () => activeBlocks.filter((b) => b.column === 2).sort((a, b) => a.order - b.order),
     [activeBlocks]
   );
-  const col3Blocks = useMemo(() =>
-    activeBlocks.filter((b) => b.column === 3).sort((a, b) => a.order - b.order),
+  const col3Blocks = useMemo(
+    () => activeBlocks.filter((b) => b.column === 3).sort((a, b) => a.order - b.order),
     [activeBlocks]
   );
 
-  const handleHideBlock = useCallback((id: string) => {
-    setPlannerBlocks((bs) => {
-      const updated = bs.map((b) => b.id === id ? { ...b, visible: false } : b);
-      if (activePlannerId) savePlannerBlocks(activePlannerId, updated);
-      else savePlannerConfig(updated);
-      return updated;
-    });
+  const handleSwitchPlanner = useCallback((id: string | null) => {
+    setActivePlannerIdState(id);
+    if (id) {
+      setPlannerBlocks(loadPlannerBlocks(id));
+    } else {
+      setPlannerBlocks(loadPlannerConfig());
+    }
+  }, []);
+
+  const handleBlocksChange = useCallback((blocks: PlannerBlock[]) => {
+    setPlannerBlocks(blocks);
+    if (activePlannerId) {
+      savePlannerBlocks(activePlannerId, blocks);
+    } else {
+      savePlannerConfig(blocks);
+    }
   }, [activePlannerId]);
-
-  const exitEditMode = () => {
-    setEditMode(false);
-  };
 
   // Render block content by type
   const renderBlockContent = (block: PlannerBlock) => {
@@ -217,6 +164,8 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
         return <UpcomingPanel store={store} projects={nonArchived} />;
       case "followups":
         return <FollowupsPanel store={store} workspace={workspace} projects={nonArchived} />;
+      case "activities":
+        return <ActivitiesPanel store={store} workspace={workspace} projects={nonArchived} />;
       case "summary":
         return <SummaryPanel store={store} workspace={workspace} projects={nonArchived} />;
       case "goals":
@@ -276,72 +225,51 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
     );
   }
 
-  // Column 1: day nav always shows when there are day-related blocks
   const hasDayBlocks = col1Blocks.some((b) =>
     ["priorities", "today", "quick-tasks"].includes(b.type)
   );
 
   return (
     <>
+      {/* Welcome tutorial */}
+      {showTutorial && mounted && (
+        <WelcomeTutorial onClose={() => setShowTutorial(false)} />
+      )}
+
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        focusMode={focusMode}
-        onToggleFocus={() => setFocusMode((f) => !f)}
-        activeMode={activeMode}
-        modes={modes}
-        onModeChange={handleModeChange}
-        onModesChange={setModes}
+        activePlannerId={activePlannerId}
+        onSwitchPlanner={handleSwitchPlanner}
+        onBlocksChange={handleBlocksChange}
       />
 
-      {/* Edit mode banner */}
-      {editMode && (
-        <div className="fixed top-0 inset-x-0 z-50 bg-ink text-paper text-[11px] py-2 flex items-center justify-center gap-3">
-          <span className="uppercase tracking-wider">Modo de edição ativo</span>
-          <span className="text-muted opacity-60">— clique em ⋯ para ocultar blocos</span>
-          <button
-            className="border border-paper/30 px-3 py-0.5 hover:bg-paper/10 ml-2"
-            onClick={exitEditMode}
-          >
-            ✓ concluir edição
-          </button>
-          <a href="/construtor" className="border border-paper/30 px-3 py-0.5 hover:bg-paper/10 text-[10px]">
-            🏗 builder completo →
-          </a>
-        </div>
-      )}
-
-      <main
-        className={`min-h-screen bg-kraft py-4 px-2 sm:py-8 sm:px-6 transition-all ${focusMode ? "focus-mode" : ""} ${editMode ? "pt-10" : ""}`}
-      >
-        <div className="mx-auto max-w-[1400px] bg-paper border border-hairline shadow-[0_2px_24px_rgba(28,27,24,0.12)] px-3 py-5 sm:px-8 sm:py-8">
+      <main className="min-h-screen bg-kraft py-4 px-2 sm:py-8 sm:px-4">
+        <div className="mx-auto max-w-[1440px] bg-paper border border-hairline px-4 py-6 sm:px-8 sm:py-8 rounded-3xl shadow-[0_4px_40px_rgba(180,140,60,0.1),0_1px_8px_rgba(0,0,0,0.05)]">
 
           {/* Cabeçalho */}
           <header className="text-center relative">
             <button
-              className="absolute left-0 top-0 ink-btn py-1.5 px-2.5"
+              className="absolute left-0 top-0 ink-btn py-2 px-4 text-[12px]"
               onClick={() => setSidebarOpen(true)}
               title="Abrir menu"
             >
-              ☰
+              ☰ menu
             </button>
 
-            <h1 className="text-lg sm:text-xl font-semibold uppercase tracking-[0.35em]">
+            <h1 className="text-2xl sm:text-3xl font-semibold uppercase tracking-[0.3em] font-serif-note not-italic">
               Planner
             </h1>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-muted mt-0.5">
-              {activeMode.name}
-            </p>
             <p className="text-[12px] font-serif-note text-muted mt-1">{fmtLong(today)}</p>
 
             {/* Linha de utilidades */}
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
               {overdueCount > 0 ? (
-                <span className="text-[10px] uppercase tracking-wider text-paper bg-alert px-2 py-1 font-semibold">
-                  ⚠ {overdueCount} {overdueCount === 1 ? "tarefa atrasada" : "tarefas atrasadas"}
+                <span className="text-[10px] uppercase tracking-wider text-paper bg-alert px-3 py-1.5 font-semibold rounded-full">
+                  ⚠ {overdueCount} {overdueCount === 1 ? "atrasada" : "atrasadas"}
                 </span>
               ) : (
-                <span className="text-[10px] uppercase tracking-wider text-muted border border-hairline px-2 py-1">
+                <span className="text-[10px] uppercase tracking-wider text-muted border border-hairline px-3 py-1.5 rounded-full">
                   ✓ em dia
                 </span>
               )}
@@ -354,36 +282,16 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
               <button
                 className={`ink-btn ${showArchived ? "ink-btn-solid" : ""}`}
                 onClick={() => setShowArchived(!showArchived)}
-                title="Mostrar projetos arquivados"
               >
-                arquivados
+                {showArchived ? "✓ arquivados" : "arquivados"}
               </button>
               <button className="ink-btn ink-btn-solid" onClick={() => setCreating(!creating)}>
                 + novo projeto
               </button>
-              <button
-                className={`ink-btn ${editMode ? "ink-btn-solid" : ""}`}
-                onClick={() => setEditMode((e) => !e)}
-                title="Editar blocos do planner"
-              >
-                {editMode ? "✎ editando" : "✎ editar"}
-              </button>
-              <button
-                className={`ink-btn ${focusMode ? "ink-btn-solid" : ""}`}
-                onClick={() => setFocusMode((f) => !f)}
-                title={focusMode ? "Sair do modo foco" : "Modo foco"}
-              >
-                {focusMode ? "⊙ foco" : "⊙ foco"}
-              </button>
               {mode === "supabase" ? (
-                <button className="ink-btn" onClick={signOut} title="Fechar o caderno">
-                  sair
-                </button>
+                <button className="ink-btn" onClick={signOut}>sair</button>
               ) : (
-                <span
-                  className="text-[9px] uppercase tracking-wider text-muted border border-dashed border-hairline px-2 py-1"
-                  title="Sem banco de dados: nada é salvo de verdade ainda"
-                >
+                <span className="text-[9px] uppercase tracking-wider text-muted border border-dashed border-hairline px-3 py-1.5 rounded-full">
                   modo demonstração
                 </span>
               )}
@@ -392,7 +300,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
             {/* Filtros por status */}
             <div className="mt-3 flex flex-wrap justify-center gap-1.5">
               <button
-                className={`text-[9px] uppercase tracking-wider px-2 py-1 border ${
+                className={`text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all ${
                   statusFilter === null
                     ? "border-ink bg-ink text-paper"
                     : "border-hairline text-muted hover:border-ink hover:text-ink"
@@ -408,7 +316,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
                 return (
                   <button
                     key={s}
-                    className="text-[9px] uppercase tracking-wider px-2 py-1 border"
+                    className="text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all"
                     style={
                       active
                         ? { background: STATUS_META[s].color, borderColor: STATUS_META[s].color, color: "#FAF8F3" }
@@ -425,7 +333,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
 
           {/* Formulário de novo projeto */}
           {creating && (
-            <div className="mt-5 max-w-xl mx-auto">
+            <div className="mt-6 max-w-xl mx-auto">
               <div className="section-bar">Novo projeto</div>
               <ProjectForm
                 initial={{
@@ -449,16 +357,15 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
           )}
 
           {/* Colunas dinâmicas */}
-          <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_1.6fr_1fr] gap-4 items-start">
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_1.6fr_1fr] gap-5 items-start">
 
             {/* Coluna 1 */}
             <div className="flex flex-col gap-4">
-              {/* Navegação de data — sempre visível se houver blocos de dia */}
               {hasDayBlocks && (
-                <div className="bg-paper border border-hairline px-3 py-2 flex items-center justify-between">
-                  <button className="ink-btn py-1 px-2.5" onClick={prevDay} title="Dia anterior">←</button>
+                <div className="bg-paper border border-hairline px-4 py-3 flex items-center justify-between rounded-2xl shadow-sm">
+                  <button className="ink-btn py-1.5 px-3" onClick={prevDay}>←</button>
                   <div className="text-center">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider">
+                    <p className="text-[12px] font-semibold uppercase tracking-wider">
                       {viewDate === today ? "Hoje" : fmtShort(viewDate)}
                     </p>
                     {viewDate !== today && (
@@ -467,90 +374,51 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
                       </button>
                     )}
                   </div>
-                  <button className="ink-btn py-1 px-2.5" onClick={nextDay} title="Próximo dia">→</button>
+                  <button className="ink-btn py-1.5 px-3" onClick={nextDay}>→</button>
                 </div>
               )}
-
               {col1Blocks.map((block) => {
                 const content = renderBlockContent(block);
-                if (!content) return null;
-                return (
-                  <BlockWrapper key={block.id} block={block} editMode={editMode} onHide={handleHideBlock}>
-                    {content}
-                  </BlockWrapper>
-                );
+                return content ? <div key={block.id}>{content}</div> : null;
               })}
-
-              {editMode && col1Blocks.length === 0 && (
-                <div className="border border-dashed border-hairline py-6 text-center text-[11px] text-muted font-serif-note">
-                  Coluna 1 vazia —{" "}
-                  <a href="/construtor" className="underline">adicionar blocos</a>
-                </div>
-              )}
             </div>
 
-            {/* Coluna 2 — Projetos */}
+            {/* Coluna 2 */}
             <div className="flex flex-col gap-4">
               {col2Blocks.map((block) => {
                 if (block.type === "projects") {
                   return (
-                    <BlockWrapper key={block.id} block={block} editMode={editMode} onHide={handleHideBlock}>
-                      <>
-                        {visibleProjects.length === 0 && (
-                          <div className="bg-paper border border-hairline p-6 text-center">
-                            <p className="text-[12px] font-serif-note text-muted">
-                              {showArchived
-                                ? "Nenhum projeto arquivado aqui."
-                                : "Nenhum projeto neste filtro. Crie um com '+ novo projeto'."}
-                            </p>
-                          </div>
-                        )}
-                        {visibleProjects.map((p) => (
-                          <ProjectCard key={p.id} project={p} store={store} />
-                        ))}
-                      </>
-                    </BlockWrapper>
+                    <div key={block.id} className="flex flex-col gap-4">
+                      {visibleProjects.length === 0 && (
+                        <div className="bg-paper border border-hairline p-6 text-center">
+                          <p className="text-[12px] font-serif-note text-muted">
+                            {showArchived
+                              ? "Nenhum projeto arquivado aqui."
+                              : "Nenhum projeto neste filtro. Crie um com '+ novo projeto'."}
+                          </p>
+                        </div>
+                      )}
+                      {visibleProjects.map((p) => (
+                        <ProjectCard key={p.id} project={p} store={store} />
+                      ))}
+                    </div>
                   );
                 }
                 const content = renderBlockContent(block);
-                if (!content) return null;
-                return (
-                  <BlockWrapper key={block.id} block={block} editMode={editMode} onHide={handleHideBlock}>
-                    {content}
-                  </BlockWrapper>
-                );
+                return content ? <div key={block.id}>{content}</div> : null;
               })}
-
-              {editMode && col2Blocks.length === 0 && (
-                <div className="border border-dashed border-hairline py-6 text-center text-[11px] text-muted font-serif-note">
-                  Coluna 2 vazia —{" "}
-                  <a href="/construtor" className="underline">adicionar blocos</a>
-                </div>
-              )}
             </div>
 
             {/* Coluna 3 */}
             <div className="flex flex-col gap-4">
               {col3Blocks.map((block) => {
                 const content = renderBlockContent(block);
-                if (!content) return null;
-                return (
-                  <BlockWrapper key={block.id} block={block} editMode={editMode} onHide={handleHideBlock}>
-                    {content}
-                  </BlockWrapper>
-                );
+                return content ? <div key={block.id}>{content}</div> : null;
               })}
-
-              {editMode && col3Blocks.length === 0 && (
-                <div className="border border-dashed border-hairline py-6 text-center text-[11px] text-muted font-serif-note">
-                  Coluna 3 vazia —{" "}
-                  <a href="/construtor" className="underline">adicionar blocos</a>
-                </div>
-              )}
             </div>
           </div>
 
-          <footer className="mt-8 pt-3 border-t border-hairline text-center">
+          <footer className="mt-10 pt-4 border-t border-hairline text-center">
             <p className="text-[10px] font-serif-note text-muted">
               &ldquo;Um dia de cada vez — mas com o portfólio inteiro à vista.&rdquo;
             </p>

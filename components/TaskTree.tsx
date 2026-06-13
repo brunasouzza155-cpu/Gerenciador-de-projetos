@@ -32,6 +32,7 @@ const TAG_META: Record<
   rapida:          { label: "RÁPIDA",    bg: "#EFE5D4", color: "#8C8578" },
   acompanhamento:  { label: "ACOMP.",    bg: "#E8EEF4", color: "#51677F" },
   atividade:       { label: "ATIVIDADE", bg: "#E8F4EC", color: "#4D6B57" },
+  agenda:          { label: "AGENDA",    bg: "#F0E8F4", color: "#6B4D7F" },
 };
 
 function TaskRow({
@@ -112,6 +113,7 @@ function TaskRow({
               <option value="rapida">⚡ tarefa rápida</option>
               <option value="acompanhamento">👁 acompanhamento</option>
               <option value="atividade">📋 atividade</option>
+              <option value="agenda">🗓 agenda</option>
             </select>
             {/* Data de cobrança só aparece se for acompanhamento */}
             {tag === "acompanhamento" && (
