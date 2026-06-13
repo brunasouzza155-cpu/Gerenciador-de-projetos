@@ -39,6 +39,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [viewDate, setViewDate] = useState(() => todayISO());
 
   const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
@@ -120,14 +121,15 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
-        store={store}
+        focusMode={focusMode}
+        onToggleFocus={() => setFocusMode((f) => !f)}
         activeMode={activeMode}
         modes={modes}
         onModeChange={handleModeChange}
         onModesChange={setModes}
       />
 
-      <main className="min-h-screen bg-kraft py-4 px-2 sm:py-8 sm:px-6">
+      <main className={`min-h-screen bg-kraft py-4 px-2 sm:py-8 sm:px-6 transition-all ${focusMode ? "focus-mode" : ""}`}>
         <div className="mx-auto max-w-[1400px] bg-paper border border-hairline shadow-[0_2px_24px_rgba(28,27,24,0.12)] px-3 py-5 sm:px-8 sm:py-8">
 
           {/* Cabeçalho */}
@@ -174,6 +176,13 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
               </button>
               <button className="ink-btn ink-btn-solid" onClick={() => setCreating(!creating)}>
                 + novo projeto
+              </button>
+              <button
+                className={`ink-btn ${focusMode ? "ink-btn-solid" : ""}`}
+                onClick={() => setFocusMode((f) => !f)}
+                title={focusMode ? "Sair do modo foco" : "Modo foco"}
+              >
+                {focusMode ? "⊙ foco" : "⊙ foco"}
               </button>
               {mode === "supabase" ? (
                 <button className="ink-btn" onClick={signOut} title="Fechar o caderno">

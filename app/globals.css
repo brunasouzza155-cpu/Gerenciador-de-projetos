@@ -1,57 +1,62 @@
 @import "tailwindcss";
 
-/* Paleta editorial — caderno preto sobre papel */
+/* ── Paleta Notion Aesthetic (padrão) ──────────────────────────────────────── */
 :root {
-  --kraft: #ECE7DC;   /* fundo externo, papel kraft */
-  --paper: #FAF8F3;   /* a "página" central */
-  --ink: #1C1B18;     /* tinta */
-  --muted: #8C8578;   /* texto secundário */
-  --hairline: #D9D2C2;/* linhas finas */
-  --tan: #D8C3A3;     /* fita adesiva */
-  --tan-soft: #EFE5D4;
-  --alert: #9C5148;   /* atrasos */
+  --kraft:    #F7F5F0;   /* fundo externo — bege quente, nunca branco puro */
+  --paper:    #FDFCFA;   /* página / card */
+  --ink:      #1A1A18;   /* tinta principal */
+  --muted:    #7A7568;   /* texto secundário */
+  --hairline: #E8E4DA;   /* linhas e bordas finas */
+  --tan:      #D4C5A0;   /* accent / destaque */
+  --tan-soft: #F0EBE0;   /* destaque suave */
+  --alert:    #9C5148;   /* atrasos / erros */
+
+  /* fonte do corpo — alterável por tema */
+  --font-body: var(--font-archivo), "Archivo", system-ui, sans-serif;
 }
 
 @theme inline {
-  --color-kraft: var(--kraft);
-  --color-paper: var(--paper);
-  --color-ink: var(--ink);
-  --color-muted: var(--muted);
+  --color-kraft:    var(--kraft);
+  --color-paper:    var(--paper);
+  --color-ink:      var(--ink);
+  --color-muted:    var(--muted);
   --color-hairline: var(--hairline);
-  --color-tan: var(--tan);
+  --color-tan:      var(--tan);
   --color-tan-soft: var(--tan-soft);
-  --color-alert: var(--alert);
-  --font-sans: var(--font-archivo), "Archivo", system-ui, sans-serif;
+  --color-alert:    var(--alert);
+  --font-sans:  var(--font-body);
   --font-serif: var(--font-garamond), "EB Garamond", Georgia, serif;
 }
 
-* {
-  border-radius: 0 !important; /* cantos retos em tudo, como papel cortado */
-}
+* { border-radius: 0 !important; }
 
 body {
   background: var(--kraft);
   color: var(--ink);
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+  letter-spacing: 0.01em;
 }
 
-/* Barra preta de cabeçalho de seção, estilo "MONEY IN" de planner impresso */
+/* ── Tipografia ─────────────────────────────────────────────────────────────── */
+h1, h2, h3 { letter-spacing: -0.01em; }
+
+/* ── Barra de seção preta estilo planner impresso ───────────────────────────── */
 .section-bar {
   background: var(--ink);
   color: var(--paper);
   text-transform: uppercase;
-  letter-spacing: 0.25em;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 6px 10px;
+  letter-spacing: 0.22em;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 7px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-/* Checkbox quadrado de tinta */
+/* ── Checkbox quadrado de tinta ─────────────────────────────────────────────── */
 .ink-check {
   width: 14px;
   height: 14px;
@@ -61,55 +66,95 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 9px;
   line-height: 1;
   color: var(--paper);
   cursor: pointer;
+  transition: background 0.1s;
 }
-.ink-check[data-state="done"] { background: var(--ink); }
+.ink-check[data-state="done"]    { background: var(--ink); }
 .ink-check[data-state="partial"] { background: var(--paper); color: var(--ink); }
 
-/* Campos de formulário discretos, só com linha inferior */
+/* ── Campos de formulário com linha inferior ─────────────────────────────────── */
 .ink-input {
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--hairline);
   font-size: 12px;
-  padding: 3px 2px;
+  padding: 4px 2px;
   color: var(--ink);
   outline: none;
   width: 100%;
+  font-family: var(--font-body);
+  transition: border-color 0.15s;
 }
 .ink-input:focus { border-bottom-color: var(--ink); }
 .ink-input::placeholder { color: var(--muted); font-style: italic; }
 
-select.ink-input { border: 1px solid var(--hairline); padding: 4px; }
-textarea.ink-input { border: 1px solid var(--hairline); padding: 6px; }
+select.ink-input  { border: 1px solid var(--hairline); padding: 5px 6px; }
+textarea.ink-input{ border: 1px solid var(--hairline); padding: 8px; }
 
-/* Botão de contorno fino */
+/* ── Botão contorno fino ─────────────────────────────────────────────────────── */
 .ink-btn {
   border: 1px solid var(--ink);
   background: transparent;
   color: var(--ink);
   font-size: 10px;
+  font-family: var(--font-body);
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  padding: 4px 10px;
+  padding: 5px 11px;
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.12s, color 0.12s;
 }
-.ink-btn:hover { background: var(--ink); color: var(--paper); }
-.ink-btn-solid {
-  background: var(--ink);
-  color: var(--paper);
-}
-.ink-btn-solid:hover { background: #3a382f; }
+.ink-btn:hover     { background: var(--ink); color: var(--paper); }
+.ink-btn-solid     { background: var(--ink); color: var(--paper); }
+.ink-btn-solid:hover { opacity: 0.88; }
 
-/* Ações que só aparecem quando o mouse passa na linha */
+/* ── Cards ──────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--paper);
+  border: 1px solid var(--hairline);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04), 0 0 0 0.5px rgba(0,0,0,0.03);
+}
+
+/* ── Ações visíveis só no hover ──────────────────────────────────────────────── */
 .row-actions { opacity: 0; transition: opacity 0.12s; }
-.group-row:hover .row-actions, .group-row:focus-within .row-actions { opacity: 1; }
-@media (hover: none) { .row-actions { opacity: 1; } } /* no celular, sempre visíveis */
+.group-row:hover .row-actions,
+.group-row:focus-within .row-actions { opacity: 1; }
+@media (hover: none) { .row-actions { opacity: 1; } }
 
+/* ── Utilitários ─────────────────────────────────────────────────────────────── */
 .hairline-b { border-bottom: 1px solid var(--hairline); }
-
 .font-serif-note { font-family: var(--font-serif); font-style: italic; }
+
+/* ── Transição suave para mudança de tema ────────────────────────────────────── */
+.theme-transition,
+.theme-transition * {
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease !important;
+}
+
+/* ── Modo foco (oculta sidebar) ──────────────────────────────────────────────── */
+.focus-mode .sidebar-overlay { display: none !important; }
+
+/* ── Animações de entrada ─────────────────────────────────────────────────────── */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-in { animation: slide-in 0.22s ease; }
+.animate-fade-up  { animation: fade-up  0.18s ease; }
+
+/* ── Login ───────────────────────────────────────────────────────────────────── */
+.auth-screen-enter { animation: fade-up 0.2s ease; }
+
+/* ── Indicador de força de senha ─────────────────────────────────────────────── */
+.pw-bar { height: 3px; transition: width 0.3s ease, background 0.3s ease; }

@@ -11,8 +11,13 @@ export interface AppMode {
 
 export const DEFAULT_MODES: AppMode[] = [
   { id: "profissional", name: "Profissional", workspace: "trabalho" },
-  { id: "pessoal", name: "Pessoal", workspace: "pessoal" },
+  { id: "pessoal",      name: "Pessoal",      workspace: "pessoal"  },
 ];
+
+export const WORKSPACE_LABELS: Record<string, string> = {
+  trabalho: "Profissional",
+  pessoal:  "Pessoal",
+};
 
 export function useModes() {
   const [modes, setModesState] = useState<AppMode[]>(DEFAULT_MODES);
