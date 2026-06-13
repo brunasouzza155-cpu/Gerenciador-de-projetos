@@ -238,3 +238,19 @@ export function savePlannerBlocks(plannerId: string, blocks: PlannerBlock[]) {
   );
   savePlanners(updated);
 }
+
+// ── Default planner identity (name + emoji) ──────────────────────────────────
+const DEFAULT_META_KEY = "planner_default_meta";
+
+export function loadDefaultPlannerMeta(): { name: string; emoji: string } {
+  if (typeof window === "undefined") return { name: "Planner", emoji: "📓" };
+  try {
+    const raw = localStorage.getItem(DEFAULT_META_KEY);
+    if (raw) return { name: "Planner", emoji: "📓", ...JSON.parse(raw) };
+  } catch {}
+  return { name: "Planner", emoji: "📓" };
+}
+
+export function saveDefaultPlannerMeta(name: string, emoji: string) {
+  try { localStorage.setItem(DEFAULT_META_KEY, JSON.stringify({ name, emoji })); } catch {}
+}

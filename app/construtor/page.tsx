@@ -71,11 +71,11 @@ function SortableBlock({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 px-3 py-2.5 border transition-all ${
+      className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
         block.visible
-          ? "border-hairline bg-paper"
+          ? "border-hairline bg-paper shadow-sm"
           : "border-dashed border-hairline bg-kraft/40 opacity-60"
-      } ${isDragging ? "shadow-lg" : ""}`}
+      } ${isDragging ? "shadow-xl" : ""}`}
     >
       {/* Drag handle */}
       <span
@@ -137,7 +137,7 @@ function SortableBlock({
 // Drag overlay ghost
 function BlockGhost({ block }: { block: PlannerBlock }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2.5 border border-ink bg-paper shadow-xl opacity-90">
+    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-ink bg-paper shadow-xl opacity-90">
       <span className="text-muted text-[12px]">⠿</span>
       <span>{block.emoji}</span>
       <span className="text-[12px]">{block.label}</span>
@@ -192,7 +192,7 @@ function ColumnZone({
             />
           ))}
           {colBlocks.length === 0 && (
-            <div className="border border-dashed border-hairline py-4 text-center text-[10px] text-muted">
+            <div className="rounded-xl border border-dashed border-hairline py-6 text-center text-[10px] text-muted">
               Arraste blocos para cá
             </div>
           )}
@@ -207,7 +207,7 @@ function ColumnZone({
             {otherBlocks.map((b) => (
               <button
                 key={b.id}
-                className="text-[9px] px-1.5 py-0.5 border border-hairline hover:border-ink text-muted hover:text-ink transition-all"
+                className="text-[9px] px-2 py-1 rounded-lg border border-hairline hover:border-ink text-muted hover:text-ink transition-all hover:bg-tan-soft/40"
                 onClick={() => onMoveToCol(b.id, column)}
               >
                 {b.emoji} {b.label}
@@ -250,8 +250,8 @@ function TemplateOnboarding({
 
   if (step === "template") {
     return (
-      <div className="fixed inset-0 z-50 bg-ink/30 flex items-center justify-center p-4">
-        <div className="bg-paper border border-hairline max-w-2xl w-full p-6 shadow-xl">
+      <div className="fixed inset-0 z-50 bg-ink/30 backdrop-blur-[2px] flex items-center justify-center p-4">
+        <div className="bg-paper rounded-2xl border border-hairline max-w-2xl w-full p-6 shadow-[0_8px_48px_rgba(44,43,39,0.18)]">
           <h2 className="text-[11px] uppercase tracking-[0.3em] font-semibold mb-1">Novo Planner</h2>
           <p className="text-[11px] text-muted font-serif-note mb-5">Escolha um modelo para começar:</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -259,7 +259,7 @@ function TemplateOnboarding({
               <button
                 key={t.key}
                 onClick={() => handlePickTemplate(t)}
-                className="border border-hairline hover:border-ink p-3 text-left transition-all hover:bg-tan-soft/30"
+                className="rounded-xl border border-hairline hover:border-tan p-3 text-left transition-all hover:bg-tan-soft/40 hover:shadow-sm"
               >
                 <div className="text-2xl mb-1">{t.emoji}</div>
                 <div className="text-[11px] font-semibold">{t.name}</div>
@@ -276,8 +276,8 @@ function TemplateOnboarding({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-ink/30 flex items-center justify-center p-4">
-      <div className="bg-paper border border-hairline max-w-lg w-full p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 bg-ink/30 backdrop-blur-[2px] flex items-center justify-center p-4">
+      <div className="bg-paper rounded-2xl border border-hairline max-w-lg w-full p-6 shadow-[0_8px_48px_rgba(44,43,39,0.18)]">
         <h2 className="text-[11px] uppercase tracking-[0.3em] font-semibold mb-4">
           {selected?.emoji} Personalizar planner
         </h2>
@@ -539,19 +539,19 @@ export default function ConstrutorPage() {
       )}
 
       {/* Barra superior */}
-      <header className="sticky top-0 z-30 bg-paper border-b border-hairline px-4 sm:px-8 py-3 flex items-center gap-2 flex-wrap">
+      <header className="sticky top-0 z-30 bg-paper border-b border-hairline px-4 sm:px-8 py-3 flex items-center gap-2 flex-wrap shadow-sm">
         <a href="/" className="ink-btn py-1.5">← Voltar</a>
         <h1 className="text-[11px] uppercase tracking-[0.3em] font-semibold">
           🏗 Construir Planner
         </h1>
         {activeConfig && (
-          <span className="text-[11px] text-muted border border-hairline px-2 py-1">
+          <span className="text-[11px] text-muted border border-hairline px-3 py-1 rounded-full">
             {activeConfig.emoji} {activeConfig.name}
           </span>
         )}
         <div className="flex-1" />
         <button className="ink-btn" onClick={() => setPreview((p) => !p)}>
-          {preview ? "✕ Fechar pré-visualização" : "👁 Pré-visualizar"}
+          {preview ? "✕ Fechar prévia" : "👁 Pré-visualizar"}
         </button>
         <button className="ink-btn" onClick={handleReset}>↺ Resetar</button>
         <button
@@ -563,35 +563,35 @@ export default function ConstrutorPage() {
       </header>
 
       <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6 items-start">
 
           {/* Painel esquerdo */}
-          <aside className="space-y-5">
+          <aside className="space-y-4">
 
             {/* Meus Planners */}
-            <div>
-              <h2 className="text-[10px] uppercase tracking-[0.25em] font-semibold mb-2">Meus Planners</h2>
-              <div className="space-y-1">
+            <div className="bg-paper border border-hairline rounded-2xl p-4 shadow-sm">
+              <h2 className="text-[9px] uppercase tracking-[0.25em] font-semibold text-muted mb-3">Meus Planners</h2>
+              <div className="space-y-1.5">
                 <button
-                  className={`w-full text-left px-2 py-1.5 text-[11px] border transition-all ${
-                    !activePlannerId ? "border-ink bg-ink text-paper" : "border-hairline hover:border-ink"
+                  className={`w-full text-left px-3 py-2 text-[11px] rounded-xl border transition-all ${
+                    !activePlannerId ? "border-ink bg-ink text-paper font-medium" : "border-hairline hover:border-ink hover:bg-tan-soft/40"
                   }`}
                   onClick={() => handleSwitchPlanner(null)}
                 >
-                  📋 Planner padrão
+                  📓 Planner padrão
                 </button>
                 {planners.map((p) => (
                   <div key={p.id} className="flex items-center gap-1">
                     <button
-                      className={`flex-1 text-left px-2 py-1.5 text-[11px] border transition-all ${
-                        activePlannerId === p.id ? "border-ink bg-ink text-paper" : "border-hairline hover:border-ink"
+                      className={`flex-1 text-left px-3 py-2 text-[11px] rounded-xl border transition-all ${
+                        activePlannerId === p.id ? "border-ink bg-ink text-paper font-medium" : "border-hairline hover:border-ink hover:bg-tan-soft/40"
                       }`}
                       onClick={() => handleSwitchPlanner(p.id)}
                     >
                       {p.emoji} {p.name}
                     </button>
                     <button
-                      className="text-[11px] text-muted hover:text-alert px-1"
+                      className="text-[13px] text-muted hover:text-alert px-2 py-1 rounded-lg hover:bg-alert/10 transition-colors"
                       onClick={() => handleDeletePlanner(p.id)}
                       title="Remover"
                     >×</button>
@@ -607,27 +607,27 @@ export default function ConstrutorPage() {
             </div>
 
             {/* Categorias de blocos */}
-            <div>
-              <h2 className="text-[10px] uppercase tracking-[0.25em] font-semibold mb-2">Blocos disponíveis</h2>
+            <div className="bg-paper border border-hairline rounded-2xl p-4 shadow-sm">
+              <h2 className="text-[9px] uppercase tracking-[0.25em] font-semibold text-muted mb-3">Blocos disponíveis</h2>
               {BLOCK_CATEGORIES.map((cat) => (
                 <div key={cat.label} className="mb-3">
-                  <p className="text-[9px] uppercase tracking-wider text-muted mb-1">{cat.label}</p>
-                  <div className="space-y-0.5">
+                  <p className="text-[8px] uppercase tracking-wider text-muted/70 mb-1.5">{cat.label}</p>
+                  <div className="space-y-1">
                     {cat.blocks.map((type) => {
                       const block = blocks.find((b) => b.type === type);
                       if (!block) return null;
                       return (
                         <div
                           key={type}
-                          className={`px-2 py-1.5 border text-[10px] flex items-center gap-2 ${
+                          className={`px-2.5 py-1.5 rounded-lg border text-[10px] flex items-center gap-2 transition-colors ${
                             block.visible
-                              ? "border-ink bg-paper"
+                              ? "border-tan/30 bg-tan-soft/50 shadow-sm"
                               : "border-dashed border-hairline text-muted"
                           }`}
                         >
                           <span>{block.emoji}</span>
                           <span className="flex-1">{block.label}</span>
-                          <span className="text-[8px] text-muted opacity-60">col {block.column}</span>
+                          <span className="text-[8px] text-muted/60">col {block.column}</span>
                         </div>
                       );
                     })}
@@ -637,7 +637,7 @@ export default function ConstrutorPage() {
 
               <div className="pt-3 border-t border-hairline">
                 <p className="text-[9px] text-muted font-serif-note leading-relaxed">
-                  Arraste para reordenar. Clique no nome para renomear. Clique no emoji para personalizar. Use os botões ✓/○ para mostrar/ocultar.
+                  Arraste para reordenar. Clique no nome para renomear. Use ✓/○ para mostrar/ocultar.
                 </p>
               </div>
             </div>
@@ -646,7 +646,7 @@ export default function ConstrutorPage() {
           {/* Área principal */}
           {preview ? (
             <div>
-              <h2 className="text-[11px] uppercase tracking-wider text-muted mb-4">Pré-visualização</h2>
+              <h2 className="text-[9px] uppercase tracking-[0.25em] text-muted font-semibold mb-4">Pré-visualização</h2>
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr_1fr] gap-4">
                 {([1, 2, 3] as const).map((col) => (
                   <div key={col} className="flex flex-col gap-3">
@@ -654,17 +654,21 @@ export default function ConstrutorPage() {
                       .filter((b) => b.column === col)
                       .sort((a, b) => a.order - b.order)
                       .map((b) => (
-                        <div key={b.id} className="bg-paper border border-hairline px-3 py-2">
-                          <div className="section-bar -mx-3 -mt-2 mb-2 px-3">
+                        <div
+                          key={b.id}
+                          className="bg-paper border border-hairline rounded-xl shadow-sm overflow-hidden"
+                          style={b.accentColor ? { "--section-color": b.accentColor } as React.CSSProperties : undefined}
+                        >
+                          <div className="section-bar">
                             {b.emoji} {b.label}
                           </div>
-                          <p className="text-[10px] text-muted font-serif-note py-2 text-center">
+                          <p className="text-[10px] text-muted font-serif-note py-4 text-center px-3">
                             conteúdo aparecerá aqui
                           </p>
                         </div>
                       ))}
                     {visibleBlocks.filter((b) => b.column === col).length === 0 && (
-                      <div className="border border-dashed border-hairline py-6 text-center text-[10px] text-muted">
+                      <div className="rounded-xl border border-dashed border-hairline py-8 text-center text-[10px] text-muted">
                         Coluna {col} — vazia
                       </div>
                     )}
@@ -685,8 +689,8 @@ export default function ConstrutorPage() {
                   [2, "Coluna 2 — Projetos"],
                   [3, "Coluna 3 — Planner"],
                 ] as [1 | 2 | 3, string][]).map(([col, label]) => (
+                  <div key={col} className="bg-paper border border-hairline rounded-2xl p-4 shadow-sm">
                   <ColumnZone
-                    key={col}
                     column={col}
                     label={label}
                     blocks={blocks}
@@ -697,6 +701,7 @@ export default function ConstrutorPage() {
                     editingId={editingId}
                     setEditingId={setEditingId}
                   />
+                  </div>
                 ))}
               </div>
 

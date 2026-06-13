@@ -46,7 +46,7 @@ h1, h2, h3 { letter-spacing: -0.01em; }
 
 /* ── Barra de seção — visual atualizado ─────────────────────────────────────── */
 .section-bar {
-  background: var(--ink);
+  background: var(--section-color, var(--ink));  /* cor personalizável por bloco */
   color: var(--paper);
   text-transform: uppercase;
   letter-spacing: 0.18em;

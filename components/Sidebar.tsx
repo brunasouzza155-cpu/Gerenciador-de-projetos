@@ -3,8 +3,9 @@
 import { useEffect, useState, lazy, Suspense } from "react";
 import { PRESET_THEMES, AVAILABLE_FONTS, applyTheme, applyFont } from "@/lib/theme";
 import {
-  loadPlanners, savePlanners, loadPlannerConfig, loadPlannerBlocks,
+  loadPlanners, savePlanners, savePlannerConfig, loadPlannerConfig, loadPlannerBlocks,
   getActivePlannerId, setActivePlannerId, DEFAULT_BLOCKS,
+  loadDefaultPlannerMeta, saveDefaultPlannerMeta,
   type PlannerBlock, type PlannerConfig,
 } from "@/lib/planner-config";
 
@@ -20,6 +21,7 @@ interface SidebarProps {
   activePlannerId: string | null;
   onSwitchPlanner: (id: string | null) => void;
   onBlocksChange: (blocks: PlannerBlock[]) => void;
+  onNameChange?: (name: string) => void;
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -29,14 +31,17 @@ export function Sidebar({
   activePlannerId,
   onSwitchPlanner,
   onBlocksChange,
+  onNameChange,
 }: SidebarProps) {
   const [planners, setPlanners] = useState<PlannerConfig[]>([]);
+  const [defaultMeta, setDefaultMeta] = useState({ name: "Planner", emoji: "📓" });
   // undefined = editor closed; null = editing default; string = editing specific planner
   const [editingId, setEditingId] = useState<string | null | undefined>(undefined);
 
-  // Load planners from localStorage
+  // Load planners + default planner meta from localStorage
   useEffect(() => {
     setPlanners(loadPlanners());
+    setDefaultMeta(loadDefaultPlannerMeta());
   }, [open]); // re-load when sidebar opens to pick up new planners
 
   // Apply saved theme/font on mount
@@ -68,11 +73,12 @@ export function Sidebar({
 
   const handleEditorSave = (blocks: PlannerBlock[], name: string, emoji: string) => {
     if (editingId === null) {
-      // Editing default planner
-      import("@/lib/planner-config").then(({ savePlannerConfig }) => {
-        savePlannerConfig(blocks);
-        onBlocksChange(blocks);
-      });
+      // Editing default planner — save blocks AND name/emoji
+      savePlannerConfig(blocks);
+      saveDefaultPlannerMeta(name, emoji);
+      setDefaultMeta({ name, emoji });
+      onBlocksChange(blocks);
+      onNameChange?.(name);
     } else if (editingId) {
       // Editing named planner
       const updated = planners.map((p) =>
@@ -82,6 +88,7 @@ export function Sidebar({
       setPlanners(updated);
       if (activePlannerId === editingId) {
         onBlocksChange(blocks);
+        onNameChange?.(name);
       }
     }
     setEditingId(undefined);
@@ -145,8 +152,8 @@ export function Sidebar({
             <div className="space-y-1.5">
               {/* Default Planner */}
               <PlannerRow
-                label="Planner padrão"
-                emoji="📓"
+                label={defaultMeta.name}
+                emoji={defaultMeta.emoji}
                 active={activePlannerId === null}
                 onClick={() => handleSwitchPlanner(null)}
                 onEdit={() => setEditingId(null)}

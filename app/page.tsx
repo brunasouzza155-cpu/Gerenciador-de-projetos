@@ -24,7 +24,8 @@ import {
 } from "@/components/BlockWidgets";
 import {
   loadPlannerConfig, loadPlannerBlocks, savePlannerConfig, savePlannerBlocks,
-  getActivePlannerId, DEFAULT_BLOCKS, type PlannerBlock,
+  getActivePlannerId, DEFAULT_BLOCKS, loadPlanners, loadDefaultPlannerMeta,
+  type PlannerBlock,
 } from "@/lib/planner-config";
 
 const subscribeNoop = () => () => {};
@@ -53,20 +54,25 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
   const [viewDate, setViewDate] = useState(() => todayISO());
   const [plannerBlocks, setPlannerBlocks] = useState<PlannerBlock[]>(DEFAULT_BLOCKS);
   const [activePlannerId, setActivePlannerIdState] = useState<string | null>(null);
+  const [plannerName, setPlannerName] = useState("Planner");
   const [showTutorial, setShowTutorial] = useState(false);
 
   const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
 
-  // Load planner config + check if tutorial should show
+  // Load planner config + name + check if tutorial should show
   useEffect(() => {
     const aid = getActivePlannerId();
     setActivePlannerIdState(aid);
     if (aid) {
+      const ps = loadPlanners();
+      const p = ps.find((pl) => pl.id === aid);
+      setPlannerName(p?.name ?? "Planner");
       setPlannerBlocks(loadPlannerBlocks(aid));
     } else {
+      const meta = loadDefaultPlannerMeta();
+      setPlannerName(meta.name);
       setPlannerBlocks(loadPlannerConfig());
     }
-    // Show tutorial for first-time users
     if (!localStorage.getItem("welcome_seen")) {
       setShowTutorial(true);
     }
@@ -133,10 +139,19 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
   const handleSwitchPlanner = useCallback((id: string | null) => {
     setActivePlannerIdState(id);
     if (id) {
+      const ps = loadPlanners();
+      const p = ps.find((pl) => pl.id === id);
+      setPlannerName(p?.name ?? "Planner");
       setPlannerBlocks(loadPlannerBlocks(id));
     } else {
+      const meta = loadDefaultPlannerMeta();
+      setPlannerName(meta.name);
       setPlannerBlocks(loadPlannerConfig());
     }
+  }, []);
+
+  const handlePlannerNameChange = useCallback((name: string) => {
+    setPlannerName(name);
   }, []);
 
   const handleBlocksChange = useCallback((blocks: PlannerBlock[]) => {
@@ -242,6 +257,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
         activePlannerId={activePlannerId}
         onSwitchPlanner={handleSwitchPlanner}
         onBlocksChange={handleBlocksChange}
+        onNameChange={handlePlannerNameChange}
       />
 
       <main className="min-h-screen bg-kraft py-4 px-2 sm:py-8 sm:px-4">
@@ -258,7 +274,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
             </button>
 
             <h1 className="text-2xl sm:text-3xl font-semibold uppercase tracking-[0.3em] font-serif-note not-italic">
-              Planner
+              {plannerName}
             </h1>
             <p className="text-[12px] font-serif-note text-muted mt-1">{fmtLong(today)}</p>
 
@@ -379,16 +395,25 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
               )}
               {col1Blocks.map((block) => {
                 const content = renderBlockContent(block);
-                return content ? <div key={block.id}>{content}</div> : null;
+                if (!content) return null;
+                return (
+                  <div
+                    key={block.id}
+                    style={block.accentColor ? { "--section-color": block.accentColor } as React.CSSProperties : undefined}
+                  >
+                    {content}
+                  </div>
+                );
               })}
             </div>
 
             {/* Coluna 2 */}
             <div className="flex flex-col gap-4">
               {col2Blocks.map((block) => {
+                const colorStyle = block.accentColor ? { "--section-color": block.accentColor } as React.CSSProperties : undefined;
                 if (block.type === "projects") {
                   return (
-                    <div key={block.id} className="flex flex-col gap-4">
+                    <div key={block.id} className="flex flex-col gap-4" style={colorStyle}>
                       {visibleProjects.length === 0 && (
                         <div className="bg-paper border border-hairline p-6 text-center">
                           <p className="text-[12px] font-serif-note text-muted">
@@ -405,7 +430,8 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
                   );
                 }
                 const content = renderBlockContent(block);
-                return content ? <div key={block.id}>{content}</div> : null;
+                if (!content) return null;
+                return <div key={block.id} style={colorStyle}>{content}</div>;
               })}
             </div>
 
@@ -413,7 +439,15 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
             <div className="flex flex-col gap-4">
               {col3Blocks.map((block) => {
                 const content = renderBlockContent(block);
-                return content ? <div key={block.id}>{content}</div> : null;
+                if (!content) return null;
+                return (
+                  <div
+                    key={block.id}
+                    style={block.accentColor ? { "--section-color": block.accentColor } as React.CSSProperties : undefined}
+                  >
+                    {content}
+                  </div>
+                );
               })}
             </div>
           </div>

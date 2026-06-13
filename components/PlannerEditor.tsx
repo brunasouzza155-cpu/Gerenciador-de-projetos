@@ -76,9 +76,23 @@ type TabId = "blocos" | "aparencia" | "cores";
 export function PlannerEditor({ planner, onSave, onClose }: PlannerEditorProps) {
   const [activeTab, setActiveTab] = useState<TabId>("blocos");
 
-  // Planner identity
-  const [name, setName] = useState(planner?.name ?? "Padrão");
-  const [emoji, setEmoji] = useState(planner?.emoji ?? "📋");
+  // Planner identity — load saved name/emoji even for the default planner
+  const [name, setName] = useState(() => {
+    if (planner) return planner.name;
+    try {
+      const raw = localStorage.getItem("planner_default_meta");
+      if (raw) return JSON.parse(raw).name ?? "Planner";
+    } catch {}
+    return "Planner";
+  });
+  const [emoji, setEmoji] = useState(() => {
+    if (planner) return planner.emoji;
+    try {
+      const raw = localStorage.getItem("planner_default_meta");
+      if (raw) return JSON.parse(raw).emoji ?? "📓";
+    } catch {}
+    return "📓";
+  });
 
   // Blocks state
   const [blocks, setBlocks] = useState<PlannerBlock[]>(() => {
@@ -136,6 +150,12 @@ export function PlannerEditor({ planner, onSave, onClose }: PlannerEditorProps) 
   function setBlockColumn(id: string, col: 1 | 2 | 3) {
     setBlocks((prev) =>
       prev.map((b) => (b.id === id ? { ...b, column: col } : b))
+    );
+  }
+
+  function setBlockColor(id: string, color: string) {
+    setBlocks((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, accentColor: color } : b))
     );
   }
 
@@ -225,24 +245,13 @@ export function PlannerEditor({ planner, onSave, onClose }: PlannerEditorProps) 
           className="flex items-center gap-3 px-6 py-4 border-b border-hairline"
           style={{ borderTopLeftRadius: 24, borderTopRightRadius: 24 }}
         >
-          {planner ? (
-            <>
-              <EmojiPicker value={emoji} onChange={setEmoji} size="md" />
-              <input
-                className="ink-input flex-1 text-[15px] font-medium"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Nome do planner"
-              />
-            </>
-          ) : (
-            <div className="flex items-center gap-2 flex-1">
-              <span className="text-xl">📋</span>
-              <span className="text-[16px] font-semibold text-ink">
-                Planner Padrão
-              </span>
-            </div>
-          )}
+          <EmojiPicker value={emoji} onChange={setEmoji} size="md" />
+          <input
+            className="ink-input flex-1 text-[15px] font-medium"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Nome do planner"
+          />
 
           <button
             className="ink-btn text-muted hover:text-ink text-[18px] w-8 h-8 flex items-center justify-center"
@@ -315,6 +324,17 @@ export function PlannerEditor({ planner, onSave, onClose }: PlannerEditorProps) 
                         >
                           {block.label}
                         </span>
+
+                        {/* Color picker for section bar */}
+                        <div title="Cor do cabeçalho deste bloco" className="flex-shrink-0">
+                          <input
+                            type="color"
+                            value={block.accentColor || "#2C2B27"}
+                            onChange={(e) => setBlockColor(block.id, e.target.value)}
+                            className="w-7 h-7 rounded-lg cursor-pointer border border-hairline"
+                            style={{ padding: 2 }}
+                          />
+                        </div>
 
                         {/* Column selector */}
                         <select
