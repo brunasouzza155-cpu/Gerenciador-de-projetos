@@ -1,6 +1,5 @@
 // Tipos de dados do Painel da Bruna.
-// "Workspace" é a aba: trabalho ou pessoal. Todos os dados carregam esse campo
-// para que as duas áreas fiquem totalmente separadas.
+// "Workspace" é a aba: trabalho ou pessoal.
 
 export type Workspace = "trabalho" | "pessoal";
 
@@ -15,6 +14,11 @@ export type ProjectStatus =
 // Farol de saúde: 0 = 🟢 ok, 1 = 🟡 atenção, 2 = 🔴 crítico
 export type Health = 0 | 1 | 2;
 
+// Tag de uma tarefa:
+// "rapida"        → aparece na seção "Tarefas rápidas & demandas do dia"
+// "acompanhamento"→ aparece no painel "Acompanhamentos" com a data tagDueDate
+export type TaskTag = "rapida" | "acompanhamento" | null;
+
 export interface Project {
   id: string;
   workspace: Workspace;
@@ -22,12 +26,12 @@ export interface Project {
   name: string;
   status: ProjectStatus;
   health: Health;
-  startDate: string | null; // datas sempre no formato "AAAA-MM-DD"
+  startDate: string | null;
   dueDate: string | null;
-  stoppedDate: string | null; // só faz sentido se pausado/cancelado
-  gains: number | null; // ganhos estimados em R$
-  fte: number | null; // esforço em FTE (pessoas em tempo integral)
-  notes: string; // notas / riscos / decisões
+  stoppedDate: string | null;
+  gains: number | null;
+  fte: number | null;
+  notes: string;
   archived: boolean;
   createdAt: string;
   updatedAt: string;
@@ -36,24 +40,26 @@ export interface Project {
 export interface Task {
   id: string;
   projectId: string;
-  parentId: string | null; // null = tarefa-raiz; senão aponta para a tarefa-mãe
+  parentId: string | null;
   title: string;
   done: boolean;
   dueDate: string | null;
+  // Classificação da tarefa (opcional). Define onde ela também aparece.
+  tag: TaskTag;
+  // Para tag="acompanhamento": data em que cobrar; para "rapida": ignorado.
+  tagDueDate: string | null;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
 }
 
-// Quick win / demanda do dia. projectId null = demanda solta do dia;
-// projectId preenchido = quick win dentro do card do projeto.
 export interface QuickWin {
   id: string;
   workspace: Workspace;
   projectId: string | null;
   title: string;
   done: boolean;
-  date: string | null; // dia a que a demanda pertence (null para quick win de projeto)
+  date: string | null;
 }
 
 export interface Priority {
@@ -61,24 +67,26 @@ export interface Priority {
   workspace: Workspace;
   title: string;
   done: boolean;
-  date: string; // prioridades são salvas por dia
+  date: string;
 }
 
 export interface Followup {
   id: string;
   workspace: Workspace;
   projectId: string | null;
-  who: string; // pessoa ou área
-  what: string; // o que está sendo aguardado
-  sinceDate: string; // desde quando espera
-  dueDate: string | null; // prazo combinado de retorno
+  who: string;
+  what: string;
+  sinceDate: string;
+  dueDate: string | null;
+  // Data para revisitar/validar o acompanhamento; quando chega, aparece no painel "Hoje".
+  validationDate: string | null;
   done: boolean;
 }
 
 export interface MonthlyGoal {
   id: string;
   workspace: Workspace;
-  month: string; // primeiro dia do mês, "AAAA-MM-01"
-  goal: string; // a meta em si
-  how: string; // como alcançar
+  month: string;
+  goal: string;
+  how: string;
 }

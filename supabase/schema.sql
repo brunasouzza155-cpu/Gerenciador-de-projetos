@@ -36,6 +36,10 @@ create table tasks (
   title text not null,
   done boolean not null default false,
   due_date date,
+  -- Classificação da tarefa: 'rapida' aparece em "Tarefas rápidas";
+  -- 'acompanhamento' aparece no painel de acompanhamentos com tag_due_date.
+  tag text check (tag in ('rapida', 'acompanhamento')),
+  tag_due_date date,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -72,6 +76,8 @@ create table followups (
   what text not null,
   since_date date not null default current_date,
   due_date date,
+  -- Data para revisitar: quando chegar, o acompanhamento aparece no painel "Hoje".
+  validation_date date,
   done boolean not null default false
 );
 

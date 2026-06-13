@@ -11,11 +11,26 @@ import { ProjectCard, ProjectForm } from "@/components/ProjectCard";
 import { Planner } from "@/components/Planner";
 import { FollowupsPanel } from "@/components/FollowupsPanel";
 import { SummaryPanel, UpcomingPanel } from "@/components/SummaryColumn";
+import { AuthGate, signOut } from "@/components/AuthGate";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 const subscribeNoop = () => () => {};
 
-export default function Home() {
-  const store = useAppStore();
+export default function Page() {
+  // Com o Supabase configurado, o app fica atrás do login e salva no banco.
+  // Sem ele, roda em modo demonstração com os dados de exemplo.
+  if (isSupabaseConfigured) {
+    return (
+      <AuthGate>
+        <Home mode="supabase" />
+      </AuthGate>
+    );
+  }
+  return <Home mode="mock" />;
+}
+
+function Home({ mode }: { mode: "mock" | "supabase" }) {
+  const store = useAppStore(mode);
   const [workspace, setWorkspace] = useState<Workspace>("trabalho");
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | null>(null);
   const [showArchived, setShowArchived] = useState(false);
@@ -65,8 +80,30 @@ export default function Home() {
   const countByStatus = (s: ProjectStatus) =>
     wsProjects.filter((p) => p.status === s && p.archived === showArchived).length;
 
-  if (!mounted) {
-    return <main className="min-h-screen bg-kraft" />;
+  if (!mounted || store.loading) {
+    return (
+      <main className="min-h-screen bg-kraft flex items-center justify-center">
+        {store.loading && (
+          <p className="text-[12px] font-serif-note text-muted">abrindo o caderno…</p>
+        )}
+      </main>
+    );
+  }
+
+  if (store.loadError) {
+    return (
+      <main className="min-h-screen bg-kraft flex items-center justify-center px-4">
+        <div className="bg-paper border border-hairline p-6 max-w-sm text-center">
+          <p className="text-[12px] text-alert font-medium">
+            Não consegui carregar seus dados.
+          </p>
+          <p className="text-[11px] font-serif-note text-muted mt-1">{store.loadError}</p>
+          <button className="ink-btn mt-4" onClick={() => location.reload()}>
+            tentar de novo
+          </button>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -122,6 +159,18 @@ export default function Home() {
             <button className="ink-btn ink-btn-solid" onClick={() => setCreating(!creating)}>
               + novo projeto
             </button>
+            {mode === "supabase" ? (
+              <button className="ink-btn" onClick={signOut} title="Fechar o caderno">
+                sair
+              </button>
+            ) : (
+              <span
+                className="text-[9px] uppercase tracking-wider text-muted border border-dashed border-hairline px-2 py-1"
+                title="Sem banco de dados: nada é salvo de verdade ainda"
+              >
+                modo demonstração
+              </span>
+            )}
           </div>
 
           {/* Filtros por status com contagem */}
@@ -186,8 +235,8 @@ export default function Home() {
           {/* Coluna 1: o dia */}
           <div className="flex flex-col gap-4">
             <PrioritiesPanel store={store} workspace={workspace} />
-            <TodayPanel store={store} projects={wsProjects.filter((p) => !p.archived)} />
-            <DayDemandsPanel store={store} workspace={workspace} />
+            <TodayPanel store={store} workspace={workspace} projects={wsProjects.filter((p) => !p.archived)} />
+            <DayDemandsPanel store={store} workspace={workspace} projects={wsProjects.filter((p) => !p.archived)} />
           </div>
 
           {/* Coluna 2: projetos */}

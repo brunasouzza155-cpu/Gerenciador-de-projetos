@@ -5,13 +5,30 @@ Web app de gerenciamento de projetos pessoais, em uma única tela, com duas
 
 ## Em que etapa estamos
 
-- ✅ **Etapa 1–2:** interface completa com dados de exemplo (mock), para validar o visual
-- ⬜ Etapa 3: conectar o Supabase (banco de dados de verdade)
-- ⬜ Etapa 4: login com e-mail e senha
+- ✅ **Etapa 1–2:** interface completa com dados de exemplo (mock) — visual validado
+- ✅ **Etapa 3:** código do Supabase pronto (banco de dados de verdade)
+- ✅ **Etapa 4:** login com e-mail e senha
 - ⬜ Etapa 5: publicar na Vercel
 
-> Por enquanto **nada é salvo de verdade**: ao recarregar a página, tudo volta
-> aos dados de exemplo. Isso é proposital — primeiro validamos o visual.
+> O app tem dois modos automáticos:
+> **modo demonstração** (sem `.env.local`): dados de exemplo, nada é salvo;
+> **modo banco de dados** (com `.env.local` preenchido): pede login e salva
+> tudo automaticamente no Supabase.
+
+## Como ligar o banco de dados (Supabase)
+
+1. Crie uma conta gratuita em https://supabase.com e um projeto novo
+   (escolha a região *South America (São Paulo)*).
+2. No painel do projeto, abra **SQL Editor**, cole o conteúdo de
+   `supabase/schema.sql` e clique em **Run** — isso cria as tabelas e as
+   regras de segurança.
+3. Em **Authentication → Users → Add user**, crie seu usuário com seu
+   e-mail e uma senha (marque *Auto confirm user*).
+4. Em **Settings (engrenagem) → Data API**, copie a **Project URL** e a chave
+   **anon public**.
+5. Na pasta do projeto, copie `.env.local.example` para `.env.local` e cole
+   os dois valores.
+6. Rode `npm run dev` de novo — agora o app pede login e salva de verdade.
 
 ## Como rodar no seu computador
 

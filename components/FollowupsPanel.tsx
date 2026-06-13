@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { diffDays, fmtShort, todayISO } from "@/lib/dates";
 import type { AppStore } from "@/lib/store";
-import type { Followup, Project, Workspace } from "@/lib/types";
+import type { Followup, Project, Task, Workspace } from "@/lib/types";
 import { InkCheck, RowBtn, SectionBar } from "./ui";
 
-// Acompanhamentos: coisas que dependem de outras pessoas.
-// Mostra há quantos dias espera; prazo estourado vira "COBRAR" em vermelho.
+// Acompanhamentos: coisas que dependem de outras pessoas,
+// mais tarefas da cascata marcadas com tag="acompanhamento".
 
 export function FollowupsPanel({
   store,
@@ -24,10 +24,29 @@ export function FollowupsPanel({
 
   const items = store.followups
     .filter((f) => f.workspace === workspace && !f.done)
-    .sort((a, b) => (a.dueDate ?? "9999") < (b.dueDate ?? "9999") ? -1 : 1);
+    .sort((a, b) =>
+      (a.dueDate ?? "9999") < (b.dueDate ?? "9999") ? -1 : 1
+    );
+
+  // Tarefas tagadas como "acompanhamento" dos projetos visíveis.
+  const projectIds = new Set(projects.map((p) => p.id));
+  const taskFollowups: { task: Task; project: Project }[] = store.tasks
+    .filter(
+      (t) => !t.done && t.tag === "acompanhamento" && projectIds.has(t.projectId)
+    )
+    .map((t) => ({
+      task: t,
+      project: projects.find((p) => p.id === t.projectId)!,
+    }))
+    .filter((x) => x.project !== undefined)
+    .sort((a, b) =>
+      (a.task.tagDueDate ?? "9999") < (b.task.tagDueDate ?? "9999") ? -1 : 1
+    );
 
   const projectName = (id: string | null) =>
     id ? projects.find((p) => p.id === id)?.code ?? null : null;
+
+  const total = items.length + taskFollowups.length;
 
   return (
     <section className="bg-paper border border-hairline">
@@ -36,7 +55,10 @@ export function FollowupsPanel({
         right={
           <button
             className="text-paper underline underline-offset-2 text-[10px] tracking-[0.15em]"
-            onClick={() => { setFormOpen(!formOpen); setEditingId(null); }}
+            onClick={() => {
+              setFormOpen(!formOpen);
+              setEditingId(null);
+            }}
           >
             + novo
           </button>
@@ -47,19 +69,68 @@ export function FollowupsPanel({
           <FollowupForm
             workspace={workspace}
             projects={projects}
-            onSave={(data) => { store.addFollowup(data); setFormOpen(false); }}
+            onSave={(data) => {
+              store.addFollowup(data);
+              setFormOpen(false);
+            }}
             onCancel={() => setFormOpen(false)}
           />
         )}
-        {items.length === 0 && !formOpen && (
+
+        {total === 0 && !formOpen && (
           <p className="text-[11px] font-serif-note text-muted py-1">
             Ninguém te devendo resposta.
           </p>
         )}
+
+        {/* Tarefas tagadas como acompanhamento (virtuais — vêm da cascata) */}
+        {taskFollowups.map(({ task, project }) => {
+          const late =
+            task.tagDueDate !== null && task.tagDueDate < today;
+          return (
+            <div key={`t-${task.id}`} className="group-row py-1.5 hairline-b">
+              <div className="flex items-start gap-2">
+                <InkCheck
+                  state="open"
+                  onToggle={() => store.toggleTask(task.id, true)}
+                  title="Marcar como concluída"
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="text-[12px]">
+                    <span
+                      className="text-[8px] uppercase tracking-wider px-1 py-0.5 mr-1 font-medium align-middle"
+                      style={{ background: "#E8EEF4", color: "#51677F" }}
+                    >
+                      TAREFA
+                    </span>
+                    {task.title}
+                  </span>
+                  <span className="block text-[9px] uppercase tracking-wider text-muted">
+                    {project.code}
+                    {task.tagDueDate && !late && (
+                      <span> · cobrar em {fmtShort(task.tagDueDate)}</span>
+                    )}
+                  </span>
+                </div>
+                {late && (
+                  <span className="text-[9px] font-bold tracking-[0.15em] text-paper bg-alert px-1.5 py-0.5 shrink-0">
+                    COBRAR
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Acompanhamentos manuais */}
         {items.map((f) => {
           const waiting = Math.max(0, diffDays(f.sinceDate, today));
           const late = f.dueDate !== null && f.dueDate < today;
           const code = projectName(f.projectId);
+          const hasValidation = f.validationDate !== null;
+          const validationLate =
+            hasValidation && f.validationDate! < today;
+
           if (editingId === f.id) {
             return (
               <FollowupForm
@@ -67,11 +138,15 @@ export function FollowupsPanel({
                 workspace={workspace}
                 projects={projects}
                 initial={f}
-                onSave={(data) => { store.updateFollowup(f.id, data); setEditingId(null); }}
+                onSave={(data) => {
+                  store.updateFollowup(f.id, data);
+                  setEditingId(null);
+                }}
                 onCancel={() => setEditingId(null)}
               />
             );
           }
+
           return (
             <div key={f.id} className="group-row py-1.5 hairline-b">
               <div className="flex items-start gap-2">
@@ -86,18 +161,42 @@ export function FollowupsPanel({
                   </span>
                   <span className="block text-[9px] uppercase tracking-wider text-muted">
                     {code && <span>{code} · </span>}
-                    esperando há {waiting} {waiting === 1 ? "dia" : "dias"}
-                    {f.dueDate && !late && <span> · retorno até {fmtShort(f.dueDate)}</span>}
+                    esperando há {waiting}{" "}
+                    {waiting === 1 ? "dia" : "dias"}
+                    {f.dueDate && !late && (
+                      <span> · cobrar até {fmtShort(f.dueDate)}</span>
+                    )}
+                    {hasValidation && (
+                      <span
+                        className={
+                          validationLate ? "text-alert" : ""
+                        }
+                      >
+                        {" · "}validar em {fmtShort(f.validationDate!)}
+                      </span>
+                    )}
                   </span>
                 </div>
                 {late && (
-                  <span className="text-[9px] font-bold tracking-[0.15em] text-paper bg-alert px-1.5 py-0.5">
+                  <span className="text-[9px] font-bold tracking-[0.15em] text-paper bg-alert px-1.5 py-0.5 shrink-0">
                     COBRAR
                   </span>
                 )}
-                <span className="row-actions flex gap-1">
-                  <RowBtn label="✎" title="Editar" onClick={() => { setEditingId(f.id); setFormOpen(false); }} />
-                  <RowBtn label="×" title="Excluir" danger onClick={() => store.deleteFollowup(f.id)} />
+                <span className="row-actions flex gap-1 shrink-0">
+                  <RowBtn
+                    label="✎"
+                    title="Editar"
+                    onClick={() => {
+                      setEditingId(f.id);
+                      setFormOpen(false);
+                    }}
+                  />
+                  <RowBtn
+                    label="×"
+                    title="Excluir"
+                    danger
+                    onClick={() => store.deleteFollowup(f.id)}
+                  />
                 </span>
               </div>
             </div>
@@ -125,6 +224,9 @@ function FollowupForm({
   const [what, setWhat] = useState(initial?.what ?? "");
   const [projectId, setProjectId] = useState(initial?.projectId ?? "");
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
+  const [validationDate, setValidationDate] = useState(
+    initial?.validationDate ?? ""
+  );
 
   return (
     <form
@@ -139,23 +241,67 @@ function FollowupForm({
           what: what.trim(),
           sinceDate: initial?.sinceDate ?? todayISO(),
           dueDate: dueDate || null,
+          validationDate: validationDate || null,
         });
       }}
     >
-      <input className="ink-input" placeholder="quem? (pessoa ou área)" value={who} onChange={(e) => setWho(e.target.value)} autoFocus />
-      <input className="ink-input" placeholder="o quê está sendo aguardado?" value={what} onChange={(e) => setWhat(e.target.value)} />
+      <input
+        className="ink-input"
+        placeholder="quem? (pessoa ou área)"
+        value={who}
+        onChange={(e) => setWho(e.target.value)}
+        autoFocus
+      />
+      <input
+        className="ink-input"
+        placeholder="o quê está sendo aguardado?"
+        value={what}
+        onChange={(e) => setWhat(e.target.value)}
+      />
+      <select
+        className="ink-input"
+        value={projectId}
+        onChange={(e) => setProjectId(e.target.value)}
+      >
+        <option value="">sem projeto</option>
+        {projects.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.code} — {p.name}
+          </option>
+        ))}
+      </select>
       <div className="flex gap-2">
-        <select className="ink-input flex-1" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-          <option value="">sem projeto</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-          ))}
-        </select>
-        <input type="date" className="ink-input w-[130px]" title="prazo de retorno" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        <label className="flex flex-col gap-0.5 flex-1">
+          <span className="text-[9px] uppercase tracking-wider text-muted">
+            Cobrar até
+          </span>
+          <input
+            type="date"
+            className="ink-input"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </label>
+        <label className="flex flex-col gap-0.5 flex-1">
+          <span className="text-[9px] uppercase tracking-wider text-muted">
+            Validar em
+          </span>
+          <input
+            type="date"
+            className="ink-input"
+            title="Aparecerá no painel 'Hoje' nesta data"
+            value={validationDate}
+            onChange={(e) => setValidationDate(e.target.value)}
+          />
+        </label>
       </div>
       <div className="flex gap-2 justify-end">
-        <button type="button" className="ink-btn" onClick={onCancel}>cancelar</button>
-        <button type="submit" className="ink-btn ink-btn-solid">salvar</button>
+        <button type="button" className="ink-btn" onClick={onCancel}>
+          cancelar
+        </button>
+        <button type="submit" className="ink-btn ink-btn-solid">
+          salvar
+        </button>
       </div>
     </form>
   );

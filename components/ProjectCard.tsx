@@ -126,10 +126,10 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
             />
           </div>
 
-          {/* Quick wins do projeto */}
+          {/* Tarefas rápidas do projeto */}
           <div className="mt-3">
             <div className="text-[9px] uppercase tracking-[0.2em] text-muted mb-1">
-              Quick wins do projeto
+              Tarefas rápidas do projeto
             </div>
             {wins.map((w) => (
               <div key={w.id} className="group-row flex items-center gap-2 py-[3px]">
@@ -146,7 +146,7 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
               </div>
             ))}
             <AddInline
-              placeholder="+ quick win…"
+              placeholder="+ tarefa rápida…"
               onAdd={(v) =>
                 store.addQuickWin({
                   workspace: project.workspace,
