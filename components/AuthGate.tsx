@@ -84,8 +84,15 @@ function LoginScreen({ onSwitch }: { onSwitch: (s: Screen) => void }) {
         <Field label="E-mail" type="email" value={email} onChange={setEmail} autoComplete="email" required />
         <Field label="Senha" type="password" value={password} onChange={setPassword} autoComplete="current-password" required />
         {error && <p className="text-[11px] text-alert font-medium">{error}</p>}
-        <button type="submit" className="ink-btn ink-btn-solid py-2.5 mt-1" disabled={busy}>
-          {busy ? "entrando…" : "entrar"}
+        <button
+          type="submit"
+          className="ink-btn ink-btn-solid py-2.5 mt-1 flex items-center justify-center gap-2"
+          disabled={busy}
+        >
+          {busy && (
+            <span className="inline-block w-3.5 h-3.5 border-2 border-paper/30 border-t-paper rounded-full animate-spin" />
+          )}
+          {busy ? "Entrando…" : "entrar"}
         </button>
       </form>
       <div className="mt-5 flex flex-col items-center gap-2">
@@ -112,6 +119,8 @@ function SignupScreen({ onSwitch }: { onSwitch: (s: Screen) => void }) {
   const [confirm, setConfirm] = useState("");
   const [error, setError]     = useState<string | null>(null);
   const [busy, setBusy]       = useState(false);
+  // True when signUp succeeded but email confirmation is still required
+  const [emailSent, setEmailSent] = useState(false);
 
   const strength = passwordStrength(password);
   const emailOk  = email === "" || isValidEmail(email);
@@ -125,13 +134,54 @@ function SignupScreen({ onSwitch }: { onSwitch: (s: Screen) => void }) {
     if (password !== confirm)  { setError("As senhas não coincidem."); return; }
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.signUp({
+    // NOTE: Para eliminar o delay de envio de e-mail, habilite "Auto Confirm"
+    // no painel do Supabase: Authentication → Settings → "Enable email confirmations" = OFF.
+    // Com Auto Confirm ativo, signUp() retorna session imediatamente e o
+    // onAuthStateChange no AuthGate redireciona o usuário para o app.
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: name } },
+      options: {
+        data: { full_name: name },
+        emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+      },
     });
-    if (error) { setError(error.message); setBusy(false); }
+    if (error) {
+      setError(error.message);
+      setBusy(false);
+    } else if (!data.session) {
+      // Email confirmation required — show "check your email" screen
+      setEmailSent(true);
+      setBusy(false);
+    }
+    // If data.session exists, onAuthStateChange in AuthGate handles the redirect automatically
   };
+
+  // ── Tela de "confirme seu e-mail" ────────────────────────────────────────────
+  if (emailSent) {
+    return (
+      <div className="auth-screen-enter text-center">
+        <div className="text-4xl mb-5">✉️</div>
+        <p className="text-[13px] font-semibold uppercase tracking-wider mb-2">Conta criada!</p>
+        <p className="text-[11px] font-serif-note text-muted leading-relaxed mb-2">
+          Enviamos um link de confirmação para{" "}
+          <span className="font-medium text-ink not-italic">{email}</span>.
+        </p>
+        <p className="text-[11px] font-serif-note text-muted leading-relaxed mb-5">
+          Clique no link para ativar sua conta e entrar.
+        </p>
+        <p className="text-[10px] text-muted italic mb-6">
+          Não recebeu? Verifique a pasta de spam.
+        </p>
+        <button
+          className="text-[10px] text-muted uppercase tracking-wider hover:text-ink transition-colors"
+          onClick={() => onSwitch("login")}
+        >
+          ← voltar ao login
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="auth-screen-enter">
@@ -183,8 +233,15 @@ function SignupScreen({ onSwitch }: { onSwitch: (s: Screen) => void }) {
           )}
         </div>
         {error && <p className="text-[11px] text-alert font-medium">{error}</p>}
-        <button type="submit" className="ink-btn ink-btn-solid py-2.5 mt-1" disabled={busy}>
-          {busy ? "criando conta…" : "criar conta"}
+        <button
+          type="submit"
+          className="ink-btn ink-btn-solid py-2.5 mt-1 flex items-center justify-center gap-2"
+          disabled={busy}
+        >
+          {busy && (
+            <span className="inline-block w-3.5 h-3.5 border-2 border-paper/30 border-t-paper rounded-full animate-spin" />
+          )}
+          {busy ? "Criando sua conta…" : "criar conta"}
         </button>
       </form>
       <div className="mt-5 text-center">
