@@ -144,9 +144,16 @@ export function Sidebar({
 
           {/* Navegação rápida */}
           <div className="px-4 py-3 border-b border-hairline space-y-1">
-            <NavLink href="/"          icon="📋" label="Planner"         onClick={onClose} />
-            <NavLink href="/painel"    icon="📊" label="Painel Gerencial" onClick={onClose} />
+            <NavLink href="/"          icon="📋" label="Planner"              onClick={onClose} />
+            <NavLink href="/painel"    icon="📊" label="Painel Gerencial"      onClick={onClose} />
             <NavLink href="/construtor" icon="🏗" label="Construir meu Planner" onClick={onClose} highlight />
+            <div className="pt-1 pb-0.5">
+              <p className="text-[8px] uppercase tracking-wider text-muted mb-1 px-2">Páginas especializadas</p>
+              <NavLink href="/habitos"  icon="🔄" label="Hábitos"   onClick={onClose} />
+              <NavLink href="/leituras" icon="📚" label="Leituras"  onClick={onClose} />
+              <NavLink href="/metas"    icon="🌟" label="Metas"     onClick={onClose} />
+              <NavLink href="/pomodoro" icon="🍅" label="Pomodoro"  onClick={onClose} />
+            </div>
           </div>
 
           {/* Sub-abas */}
