@@ -36,9 +36,10 @@ create table tasks (
   title text not null,
   done boolean not null default false,
   due_date date,
-  -- Classificação da tarefa: 'rapida' aparece em "Tarefas rápidas";
-  -- 'acompanhamento' aparece no painel de acompanhamentos com tag_due_date.
-  tag text check (tag in ('rapida', 'acompanhamento')),
+  -- Classificação da tarefa: 'rapida' aparece em "Tarefas Rápidas" do dia;
+  -- 'acompanhamento' aparece no painel de acompanhamentos com tag_due_date;
+  -- 'atividade' é classificação visual dentro do projeto.
+  tag text check (tag in ('rapida', 'acompanhamento', 'atividade')),
   tag_due_date date,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),

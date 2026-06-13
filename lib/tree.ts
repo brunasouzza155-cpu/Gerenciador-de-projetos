@@ -49,10 +49,10 @@ export function descendantIds(tasks: Task[], rootId: string): string[] {
  */
 export function nodeState(node: TaskNode): "done" | "partial" | "open" {
   if (node.children.length === 0) return node.task.done ? "done" : "open";
-  const leaves = collectLeaves(node);
-  const doneCount = leaves.filter((l) => l.done).length;
+  // Usa apenas filhas diretas: marcar subtarefas não auto-completa a mãe.
+  const doneCount = node.children.filter((c) => c.task.done).length;
   if (doneCount === 0) return "open";
-  if (doneCount === leaves.length) return "done";
+  if (doneCount === node.children.length) return "done";
   return "partial";
 }
 

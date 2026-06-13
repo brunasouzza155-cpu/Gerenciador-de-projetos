@@ -29,8 +29,9 @@ const TAG_META: Record<
   NonNullable<TaskTag>,
   { label: string; bg: string; color: string }
 > = {
-  rapida:          { label: "RÁPIDA",   bg: "#EFE5D4", color: "#8C8578" },
-  acompanhamento:  { label: "ACOMP.",   bg: "#E8EEF4", color: "#51677F" },
+  rapida:          { label: "RÁPIDA",    bg: "#EFE5D4", color: "#8C8578" },
+  acompanhamento:  { label: "ACOMP.",    bg: "#E8EEF4", color: "#51677F" },
+  atividade:       { label: "ATIVIDADE", bg: "#E8F4EC", color: "#4D6B57" },
 };
 
 function TaskRow({
@@ -103,13 +104,14 @@ function TaskRow({
             />
             {/* Seletor de tag */}
             <select
-              className="ink-input w-[130px]"
+              className="ink-input w-[140px]"
               value={tag ?? ""}
               onChange={(e) => setTag((e.target.value as TaskTag) || null)}
             >
               <option value="">sem classificação</option>
               <option value="rapida">⚡ tarefa rápida</option>
               <option value="acompanhamento">👁 acompanhamento</option>
+              <option value="atividade">📋 atividade</option>
             </select>
             {/* Data de cobrança só aparece se for acompanhamento */}
             {tag === "acompanhamento" && (

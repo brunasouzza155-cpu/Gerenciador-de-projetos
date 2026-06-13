@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { fmtFull } from "@/lib/dates";
+import { fmtFull, fmtShort } from "@/lib/dates";
 import { buildTree, projectProgress } from "@/lib/tree";
 import { fmtBRL, HEALTH_META, STATUS_META, STATUS_ORDER } from "@/lib/theme";
 import type { AppStore } from "@/lib/store";
@@ -140,19 +140,26 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
                 <span className={`flex-1 text-[12px] ${w.done ? "line-through text-muted" : ""}`}>
                   {w.title}
                 </span>
+                {w.date && (
+                  <span
+                    className="text-[9px] tabular-nums text-muted shrink-0 px-1 py-0.5 border border-hairline"
+                    title="Agendada para este dia"
+                  >
+                    {fmtShort(w.date)}
+                  </span>
+                )}
                 <span className="row-actions">
                   <RowBtn label="×" title="Excluir" danger onClick={() => store.deleteQuickWin(w.id)} />
                 </span>
               </div>
             ))}
-            <AddInline
-              placeholder="+ tarefa rápida…"
-              onAdd={(v) =>
+            <ProjectQuickWinForm
+              onAdd={(title, date) =>
                 store.addQuickWin({
                   workspace: project.workspace,
                   projectId: project.id,
-                  title: v,
-                  date: null,
+                  title,
+                  date,
                 })
               }
             />
@@ -160,6 +167,41 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
         </div>
       )}
     </div>
+  );
+}
+
+function ProjectQuickWinForm({ onAdd }: { onAdd: (title: string, date: string | null) => void }) {
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+
+  return (
+    <form
+      className="flex items-center gap-1.5 flex-wrap pt-0.5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!title.trim()) return;
+        onAdd(title.trim(), date || null);
+        setTitle("");
+        setDate("");
+      }}
+    >
+      <input
+        className="ink-input flex-1 min-w-[110px]"
+        placeholder="+ tarefa rápida…"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <input
+        type="date"
+        className="ink-input w-[110px]"
+        title="Agendar para o dia…"
+        value={date}
+        onChange={(e) => setDate(e.target.value)}
+      />
+      {title.trim() && (
+        <button className="ink-btn" type="submit">ok</button>
+      )}
+    </form>
   );
 }
 

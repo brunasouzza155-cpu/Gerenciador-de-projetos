@@ -14,7 +14,7 @@ const garamond = EB_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Painel da Bruna",
+  title: "Planner",
   description: "Gerenciador de projetos pessoais",
 };
 
