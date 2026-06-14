@@ -103,11 +103,20 @@ function TaskRow({
               value={due}
               onChange={(e) => setDue(e.target.value)}
             />
-            {/* Seletor de tag */}
+            {/* Seletor de tag — salva imediatamente ao mudar */}
             <select
               className="ink-input w-[140px]"
               value={tag ?? ""}
-              onChange={(e) => setTag((e.target.value as TaskTag) || null)}
+              onChange={(e) => {
+                const newTag = (e.target.value as TaskTag) || null;
+                setTag(newTag);
+                store.updateTask(task.id, {
+                  title: task.title,
+                  dueDate: task.dueDate,
+                  tag: newTag,
+                  tagDueDate: newTag === "acompanhamento" ? task.tagDueDate : null,
+                });
+              }}
             >
               <option value="">sem classificação</option>
               <option value="rapida">⚡ tarefa rápida</option>
@@ -123,7 +132,15 @@ function TaskRow({
                 title="Cobrar em…"
                 placeholder="cobrar em…"
                 value={tagDue}
-                onChange={(e) => setTagDue(e.target.value)}
+                onChange={(e) => {
+                  setTagDue(e.target.value);
+                  store.updateTask(task.id, {
+                    title: task.title,
+                    dueDate: task.dueDate,
+                    tag: task.tag,
+                    tagDueDate: e.target.value || null,
+                  });
+                }}
               />
             )}
             <button className="ink-btn" type="submit">ok</button>

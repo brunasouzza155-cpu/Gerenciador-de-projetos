@@ -44,7 +44,9 @@ export function UpcomingPanel({
               {fmtFull(task.dueDate!)}
             </span>
             <span className="flex-1 text-[11px] leading-snug min-w-0 truncate">{task.title}</span>
-            <span className="text-[9px] uppercase tracking-wider text-muted shrink-0">{project.code}</span>
+            <span className="text-[9px] uppercase tracking-wider text-muted shrink-0">
+              {project.code ? `${project.code} · ${project.name}` : project.name}
+            </span>
           </div>
         ))}
       </div>

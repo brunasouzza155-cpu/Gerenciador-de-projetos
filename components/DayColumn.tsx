@@ -264,7 +264,7 @@ export function DayDemandsPanel({
               <span className="flex-1 text-[12px]">{t.title}</span>
               {proj && (
                 <span className="text-[9px] uppercase tracking-wider text-muted">
-                  {proj.code}
+                  {proj.code ? `${proj.code} · ${proj.name}` : proj.name}
                 </span>
               )}
               <span
@@ -294,7 +294,7 @@ export function DayDemandsPanel({
               </span>
               {proj && (
                 <span className="text-[9px] uppercase tracking-wider text-muted shrink-0">
-                  {proj.code}
+                  {proj.code ? `${proj.code} · ${proj.name}` : proj.name}
                 </span>
               )}
               <span className="row-actions">

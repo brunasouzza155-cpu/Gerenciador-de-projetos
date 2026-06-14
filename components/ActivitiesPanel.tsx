@@ -57,7 +57,7 @@ export function ActivitiesPanel({
                 <div className="flex-1 min-w-0">
                   <span className="text-[12px] leading-snug">{task.title}</span>
                   <span className="block text-[9px] uppercase tracking-wider text-muted mt-0.5">
-                    {project.code}
+                    {project.code ? `${project.code} · ${project.name}` : project.name}
                     {" · "}
                     <span style={{ color: statusMeta.color }}>{statusMeta.label}</span>
                   </span>

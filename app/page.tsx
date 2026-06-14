@@ -275,31 +275,33 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
 
           {/* Cabeçalho */}
           <header className="text-center relative">
-            <button
-              className="absolute left-0 top-0 ink-btn py-2 px-4 text-[12px]"
-              onClick={() => setSidebarOpen(true)}
-              title="Abrir menu"
-            >
-              ☰ menu
-            </button>
-
-            {mode === "supabase" ? (
+            <div className="flex items-center justify-between sm:block">
               <button
-                className="absolute right-0 top-0 ink-btn py-2 px-4 text-[12px]"
-                onClick={signOut}
+                className="sm:absolute sm:left-0 sm:top-0 ink-btn py-2 px-3 sm:px-4 text-[12px] shrink-0"
+                onClick={() => setSidebarOpen(true)}
+                title="Abrir menu"
               >
-                sair
+                ☰ menu
               </button>
-            ) : (
-              <span className="absolute right-0 top-0 text-[9px] uppercase tracking-wider text-muted border border-dashed border-hairline px-3 py-1.5 rounded-full">
-                demo
-              </span>
-            )}
 
-            <h1 className="text-2xl sm:text-3xl font-semibold uppercase tracking-[0.3em] font-serif-note not-italic">
-              {plannerName}
-            </h1>
-            <p className="text-[12px] font-serif-note text-muted mt-1">{fmtLong(today)}</p>
+              <h1 className="flex-1 text-base sm:text-2xl md:text-3xl font-semibold uppercase tracking-[0.15em] sm:tracking-[0.3em] font-serif-note not-italic px-2 sm:px-24 leading-tight truncate">
+                {plannerName}
+              </h1>
+
+              {mode === "supabase" ? (
+                <button
+                  className="sm:absolute sm:right-0 sm:top-0 ink-btn py-2 px-3 sm:px-4 text-[12px] shrink-0"
+                  onClick={signOut}
+                >
+                  sair
+                </button>
+              ) : (
+                <span className="sm:absolute sm:right-0 sm:top-0 text-[9px] uppercase tracking-wider text-muted border border-dashed border-hairline px-2 sm:px-3 py-1.5 rounded-full shrink-0">
+                  demo
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] sm:text-[12px] font-serif-note text-muted mt-1">{fmtLong(today)}</p>
 
             {/* Status + Busca — alinhados à esquerda */}
             <div className="mt-5 flex items-center gap-2">

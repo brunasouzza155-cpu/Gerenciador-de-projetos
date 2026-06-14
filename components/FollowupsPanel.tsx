@@ -43,8 +43,12 @@ export function FollowupsPanel({
       (a.task.tagDueDate ?? "9999") < (b.task.tagDueDate ?? "9999") ? -1 : 1
     );
 
-  const projectName = (id: string | null) =>
-    id ? projects.find((p) => p.id === id)?.code ?? null : null;
+  const projectLabel = (id: string | null) => {
+    if (!id) return null;
+    const p = projects.find((pr) => pr.id === id);
+    if (!p) return null;
+    return p.code ? `${p.code} · ${p.name}` : p.name;
+  };
 
   const total = items.length + taskFollowups.length;
 
@@ -106,7 +110,7 @@ export function FollowupsPanel({
                     {task.title}
                   </span>
                   <span className="block text-[9px] uppercase tracking-wider text-muted">
-                    {project.code}
+                    {project.code ? `${project.code} · ${project.name}` : project.name}
                     {task.tagDueDate && !late && (
                       <span> · cobrar em {fmtShort(task.tagDueDate)}</span>
                     )}
@@ -126,7 +130,6 @@ export function FollowupsPanel({
         {items.map((f) => {
           const waiting = Math.max(0, diffDays(f.sinceDate, today));
           const late = f.dueDate !== null && f.dueDate < today;
-          const code = projectName(f.projectId);
           const hasValidation = f.validationDate !== null;
           const validationLate =
             hasValidation && f.validationDate! < today;
@@ -160,7 +163,7 @@ export function FollowupsPanel({
                     <strong>{f.who}</strong> — {f.what}
                   </span>
                   <span className="block text-[9px] uppercase tracking-wider text-muted">
-                    {code && <span>{code} · </span>}
+                    {projectLabel(f.projectId) && <span>{projectLabel(f.projectId)} · </span>}
                     esperando há {waiting}{" "}
                     {waiting === 1 ? "dia" : "dias"}
                     {f.dueDate && !late && (

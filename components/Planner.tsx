@@ -16,9 +16,10 @@ const VIEWS: View[] = ["semana", "mês", "tri", "semestre", "ano"];
 
 export function Planner({ store, projects }: { store: AppStore; projects: Project[] }) {
   const [view, setView] = useState<View>("semana");
+  const [weekOffset, setWeekOffset] = useState(0);
   const today = todayISO();
 
-  // Todas as folhas pendentes com data, dos projetos visíveis.
+  // Todas as folhas com data dos projetos visíveis.
   const dated: { task: Task; project: Project }[] = [];
   for (const project of projects) {
     for (const task of projectLeaves(store.tasks, project.id)) {
@@ -43,7 +44,14 @@ export function Planner({ store, projects }: { store: AppStore; projects: Projec
         ))}
       </div>
       <div className="px-3 py-2">
-        {view === "semana" && <WeekView dated={dated} today={today} />}
+        {view === "semana" && (
+          <WeekView
+            dated={dated}
+            today={today}
+            weekOffset={weekOffset}
+            onWeekChange={setWeekOffset}
+          />
+        )}
         {view === "mês" && <MonthView dated={dated} today={today} />}
         {view === "tri" && <TimelineView projects={projects} today={today} months={3} />}
         {view === "semestre" && <TimelineView projects={projects} today={today} months={6} />}
@@ -53,11 +61,59 @@ export function Planner({ store, projects }: { store: AppStore; projects: Projec
   );
 }
 
-// SEMANA: lista vertical seg→dom, hoje destacado.
-function WeekView({ dated, today }: { dated: { task: Task; project: Project }[]; today: string }) {
-  const monday = mondayOf(today);
+// SEMANA: lista vertical seg→dom, hoje destacado, com navegação de semanas.
+function WeekView({
+  dated, today, weekOffset, onWeekChange,
+}: {
+  dated: { task: Task; project: Project }[];
+  today: string;
+  weekOffset: number;
+  onWeekChange: (offset: number) => void;
+}) {
+  const monday = addDays(mondayOf(today), weekOffset * 7);
+  const sunday = addDays(monday, 6);
+  const weekLabel =
+    weekOffset === 0
+      ? "Esta semana"
+      : weekOffset === 1
+      ? "Próxima semana"
+      : weekOffset === -1
+      ? "Semana passada"
+      : `${monday.slice(8)}/${monday.slice(5, 7)} – ${sunday.slice(8)}/${sunday.slice(5, 7)}`;
+
   return (
     <div>
+      {/* Navegação de semana */}
+      <div className="flex items-center justify-between mb-2 -mx-1">
+        <button
+          className="ink-btn py-0.5 px-2 text-[10px]"
+          onClick={() => onWeekChange(weekOffset - 1)}
+          title="Semana anterior"
+        >
+          ←
+        </button>
+        <span className="text-[9px] uppercase tracking-[0.15em] text-muted">
+          {weekLabel}
+        </span>
+        {weekOffset !== 0 ? (
+          <button
+            className="ink-btn py-0.5 px-2 text-[10px]"
+            onClick={() => onWeekChange(0)}
+            title="Voltar para esta semana"
+          >
+            hoje
+          </button>
+        ) : (
+          <button
+            className="ink-btn py-0.5 px-2 text-[10px]"
+            onClick={() => onWeekChange(weekOffset + 1)}
+            title="Próxima semana"
+          >
+            →
+          </button>
+        )}
+      </div>
+
       {WEEKDAYS_PT.map((name, i) => {
         const day = addDays(monday, i);
         const isToday = day === today;
@@ -79,7 +135,9 @@ function WeekView({ dated, today }: { dated: { task: Task; project: Project }[];
                   <span className={task.done ? "line-through text-muted" : !task.done && day < today ? "text-alert" : ""}>
                     {task.title}
                   </span>
-                  <span className="text-[9px] text-muted"> · {project.code}</span>
+                  <span className="text-[9px] text-muted">
+                    {" · "}{project.code ? `${project.code} · ${project.name}` : project.name}
+                  </span>
                 </div>
               ))}
             </div>
