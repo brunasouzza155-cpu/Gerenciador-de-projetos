@@ -68,6 +68,19 @@ export function Sidebar({
     } catch {}
   }, []);
 
+  const handleDeleteDefaultPlanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("Redefinir o planner padrão? A configuração atual será apagada.")) return;
+    localStorage.removeItem("planner_layout");
+    localStorage.removeItem("planner_default_meta");
+    setDefaultMeta({ name: "Planner", emoji: "📓" });
+    if (activePlannerId === null) {
+      onBlocksChange(DEFAULT_BLOCKS);
+      onNameChange?.("Planner");
+    }
+    onClose();
+  };
+
   const handleSwitchPlanner = (id: string | null) => {
     onSwitchPlanner(id);
     if (id) setActivePlannerId(id);
@@ -161,6 +174,7 @@ export function Sidebar({
                 active={activePlannerId === null}
                 onClick={() => handleSwitchPlanner(null)}
                 onEdit={() => setEditingId(null)}
+                onDelete={handleDeleteDefaultPlanner}
               />
 
               {/* User planners */}

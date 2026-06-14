@@ -180,7 +180,15 @@ export function loadPlannerConfig(): PlannerBlock[] {
     const parsed: PlannerBlock[] = JSON.parse(raw);
     const existingIds = new Set(parsed.map((b) => b.id));
     const missing = DEFAULT_BLOCKS.filter((b) => !existingIds.has(b.id));
-    return [...parsed, ...missing];
+    const merged = [...parsed, ...missing];
+    // Default planner always has objetivo on; projects and summary are off
+    return merged.map((b) =>
+      b.type === "projects" || b.type === "summary"
+        ? { ...b, visible: false }
+        : b.type === "objetivo"
+        ? { ...b, visible: true }
+        : b
+    );
   } catch {
     return DEFAULT_BLOCKS;
   }
