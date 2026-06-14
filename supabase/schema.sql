@@ -23,6 +23,7 @@ create table projects (
   fte numeric,
   notes text not null default '',
   archived boolean not null default false,
+  kind text not null default 'projeto' check (kind in ('projeto', 'objetivo')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -128,3 +129,11 @@ create policy "own followups" on followups
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "own monthly_goals" on monthly_goals
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- =============================================================
+-- Migration: adicionar coluna kind à tabela projects
+-- Se a tabela já existir, rode apenas este trecho no SQL Editor:
+-- =============================================================
+-- alter table projects
+--   add column if not exists kind text not null default 'projeto'
+--     check (kind in ('projeto', 'objetivo'));

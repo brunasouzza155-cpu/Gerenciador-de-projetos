@@ -8,6 +8,7 @@ import { useAppStore } from "@/lib/store";
 import type { ProjectStatus } from "@/lib/types";
 import { DayDemandsPanel, PrioritiesPanel, TodayPanel } from "@/components/DayColumn";
 import { ProjectCard, ProjectForm } from "@/components/ProjectCard";
+import { ObjetivosBlock } from "@/components/ObjetivoCard";
 import { Planner } from "@/components/Planner";
 import { FollowupsPanel } from "@/components/FollowupsPanel";
 import { ActivitiesPanel } from "@/components/ActivitiesPanel";
@@ -84,7 +85,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
   const nextDay = () => setViewDate((d) => addDays(d, 1));
 
   const wsProjects = useMemo(
-    () => store.projects.filter((p) => p.workspace === workspace),
+    () => store.projects.filter((p) => p.workspace === workspace && p.kind !== "objetivo"),
     [store.projects, workspace]
   );
 
@@ -209,6 +210,8 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
         return <ProgressChartWidget projects={nonArchived} />;
       case "quick-kanban":
         return <QuickKanbanWidget />;
+      case "objetivo":
+        return <ObjetivosBlock store={store} workspace={workspace} />;
       default:
         return null;
     }
@@ -365,6 +368,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
                   fte: null,
                   notes: "",
                   archived: false,
+                  kind: "projeto",
                 }}
                 onSave={(data) => { store.addProject(data); setCreating(false); }}
                 onCancel={() => setCreating(false)}

@@ -29,6 +29,7 @@ interface ProjectRow {
   fte: number | null;
   notes: string;
   archived: boolean;
+  kind?: "projeto" | "objetivo";
   created_at: string;
   updated_at: string;
 }
@@ -98,6 +99,7 @@ const projectFromRow = (r: ProjectRow): Project => ({
   fte: r.fte === null ? null : Number(r.fte),
   notes: r.notes,
   archived: r.archived,
+  kind: r.kind ?? "projeto",
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -163,6 +165,7 @@ export function projectToRow(p: Partial<Project>): Record<string, unknown> {
   if (p.fte !== undefined) row.fte = p.fte;
   if (p.notes !== undefined) row.notes = p.notes;
   if (p.archived !== undefined) row.archived = p.archived;
+  if (p.kind !== undefined) row.kind = p.kind;
   return row;
 }
 

@@ -35,6 +35,7 @@ export interface Project {
   fte: number | null;
   notes: string;
   archived: boolean;
+  kind?: "projeto" | "objetivo";
   createdAt: string;
   updatedAt: string;
 }

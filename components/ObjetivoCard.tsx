@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { fmtFull } from "@/lib/dates";
+import { fmtFull, todayISO } from "@/lib/dates";
 import { buildTree, projectProgress } from "@/lib/tree";
-import { fmtBRL, HEALTH_META, STATUS_META, STATUS_ORDER } from "@/lib/theme";
+import { HEALTH_META, STATUS_META, STATUS_ORDER } from "@/lib/theme";
 import type { AppStore } from "@/lib/store";
-import type { Health, Project, ProjectStatus } from "@/lib/types";
-import { AddInline, RowBtn } from "./ui";
+import type { Health, Project, ProjectStatus, Workspace } from "@/lib/types";
+import { AddInline } from "./ui";
 import { TaskTree } from "./TaskTree";
 
-export function ProjectCard({ project, store }: { project: Project; store: AppStore }) {
+export function ObjetivoCard({ project, store }: { project: Project; store: AppStore }) {
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(false);
 
@@ -22,14 +22,13 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
       className="bg-paper border border-hairline shadow-[2px_2px_0_rgba(28,27,24,0.06)]"
       style={{ borderLeft: `4px solid ${meta.color}` }}
     >
-      {/* Cabeçalho do card */}
       <div className="px-3 pt-2.5 pb-2 hairline-b">
         <div className="flex items-baseline gap-2 flex-wrap">
           <span className="text-[10px] tracking-[0.2em] text-muted">{project.code}</span>
           <button
             className="font-semibold text-[13px] uppercase tracking-wide text-left"
             onClick={() => setOpen(!open)}
-            title={open ? "Recolher cascata" : "Expandir cascata"}
+            title={open ? "Recolher" : "Expandir"}
           >
             {project.name} <span className="text-muted text-[10px]">{open ? "▾" : "▸"}</span>
           </button>
@@ -44,7 +43,6 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
           </span>
         </div>
 
-        {/* Barra de progresso fina */}
         <div className="mt-2 flex items-center gap-2">
           <div className="flex-1 h-[5px] border border-hairline">
             <div className="h-full bg-ink" style={{ width: `${progress}%` }} />
@@ -52,15 +50,12 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
           <span className="text-[10px] tabular-nums font-medium">{progress}%</span>
         </div>
 
-        {/* Linha de dados rápidos */}
         <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-muted">
           {project.startDate && <span>início {fmtFull(project.startDate)}</span>}
           {project.dueDate && <span>previsão {fmtFull(project.dueDate)}</span>}
           {project.stoppedDate && (
             <span className="text-alert">parado em {fmtFull(project.stoppedDate)}</span>
           )}
-          {project.gains != null && <span>ganhos {fmtBRL(project.gains)}</span>}
-          {project.fte != null && <span>{project.fte} FTE</span>}
         </div>
 
         {project.notes && (
@@ -71,7 +66,7 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
 
         <div className="mt-2 flex gap-2">
           <button className="ink-btn" onClick={() => setEditing(!editing)}>
-            {editing ? "fechar edição" : "editar dados do projeto"}
+            {editing ? "fechar edição" : "editar objetivo"}
           </button>
           {!project.archived &&
             (project.status === "concluido" || project.status === "cancelado") && (
@@ -93,7 +88,7 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
           <button
             className="ink-btn ml-auto text-alert border-alert"
             onClick={() => {
-              if (confirm(`Excluir o projeto "${project.name}" e todas as suas tarefas? Essa ação não tem volta.`)) {
+              if (confirm(`Excluir o objetivo "${project.name}" e todas as suas tarefas? Essa ação não tem volta.`)) {
                 store.deleteProject(project.id);
               }
             }}
@@ -103,7 +98,7 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
         </div>
 
         {editing && (
-          <ProjectForm
+          <ObjetivoForm
             initial={project}
             onSave={(data) => {
               store.updateProject(project.id, data);
@@ -114,7 +109,6 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
         )}
       </div>
 
-      {/* Cascata */}
       {open && (
         <div className="px-3 py-2">
           <TaskTree nodes={tree} store={store} />
@@ -130,8 +124,7 @@ export function ProjectCard({ project, store }: { project: Project; store: AppSt
   );
 }
 
-// Formulário inline com TODOS os campos do projeto.
-export function ProjectForm({
+export function ObjetivoForm({
   initial,
   onSave,
   onCancel,
@@ -148,8 +141,6 @@ export function ProjectForm({
     startDate: initial.startDate ?? "",
     dueDate: initial.dueDate ?? "",
     stoppedDate: initial.stoppedDate ?? "",
-    gains: initial.gains?.toString() ?? "",
-    fte: initial.fte?.toString() ?? "",
     notes: initial.notes,
   });
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -170,11 +161,11 @@ export function ProjectForm({
           startDate: f.startDate || null,
           dueDate: f.dueDate || null,
           stoppedDate: showStopped ? f.stoppedDate || null : null,
-          gains: f.gains ? Number(f.gains) : null,
-          fte: f.fte ? Number(f.fte) : null,
+          gains: null,
+          fte: null,
           notes: f.notes,
           archived: initial.archived ?? false,
-          kind: initial.kind ?? "projeto",
+          kind: "objetivo",
         });
       }}
     >
@@ -220,14 +211,6 @@ export function ProjectForm({
           <input type="date" className="ink-input" value={f.stoppedDate} onChange={(e) => set("stoppedDate", e.target.value)} />
         </label>
       )}
-      <label className="flex flex-col gap-0.5">
-        <span className="text-muted uppercase tracking-wider text-[9px]">Ganhos (R$)</span>
-        <input type="number" min="0" step="any" className="ink-input" value={f.gains} onChange={(e) => set("gains", e.target.value)} />
-      </label>
-      <label className="flex flex-col gap-0.5">
-        <span className="text-muted uppercase tracking-wider text-[9px]">FTE</span>
-        <input type="number" min="0" step="0.1" className="ink-input" value={f.fte} onChange={(e) => set("fte", e.target.value)} />
-      </label>
       <label className="col-span-2 flex flex-col gap-0.5">
         <span className="text-muted uppercase tracking-wider text-[9px]">Notas / riscos / decisões</span>
         <textarea className="ink-input" rows={3} value={f.notes} onChange={(e) => set("notes", e.target.value)} />
@@ -237,5 +220,65 @@ export function ProjectForm({
         <button type="submit" className="ink-btn ink-btn-solid">salvar</button>
       </div>
     </form>
+  );
+}
+
+export function ObjetivosBlock({ store, workspace }: { store: AppStore; workspace: Workspace }) {
+  const [creating, setCreating] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const today = todayISO();
+
+  const objetivos = store.projects.filter(
+    (p) => p.workspace === workspace && p.kind === "objetivo" && p.archived === showArchived
+  );
+
+  return (
+    <div>
+      <div className="section-bar">Objetivos</div>
+      <div className="flex flex-col gap-3 mt-3">
+        {creating && (
+          <ObjetivoForm
+            initial={{
+              workspace,
+              code: "",
+              name: "",
+              status: "andamento",
+              health: 0,
+              startDate: today,
+              dueDate: null,
+              stoppedDate: null,
+              gains: null,
+              fte: null,
+              notes: "",
+              archived: false,
+              kind: "objetivo",
+            }}
+            onSave={(data) => { store.addProject(data); setCreating(false); }}
+            onCancel={() => setCreating(false)}
+          />
+        )}
+        {objetivos.length === 0 && !creating && (
+          <p className="text-[11px] font-serif-note text-muted text-center py-2">
+            {showArchived ? "Nenhum objetivo arquivado." : "Nenhum objetivo ainda."}
+          </p>
+        )}
+        {objetivos.map((p) => (
+          <ObjetivoCard key={p.id} project={p} store={store} />
+        ))}
+      </div>
+      <div className="mt-3 flex gap-2">
+        {!creating && (
+          <button className="ink-btn text-[10px]" onClick={() => setCreating(true)}>
+            + novo objetivo
+          </button>
+        )}
+        <button
+          className={`ink-btn text-[10px] ${showArchived ? "ink-btn-solid" : ""}`}
+          onClick={() => setShowArchived(!showArchived)}
+        >
+          {showArchived ? "✓ arquivados" : "arquivados"}
+        </button>
+      </div>
+    </div>
   );
 }
