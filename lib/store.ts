@@ -29,11 +29,35 @@ import {
 } from "./db";
 
 // Camada de dados do app. Dois modos:
-// - "mock": tudo em memória, com dados de exemplo (modo demonstração)
+// - "mock": persiste em localStorage (sobrevive a recargas da página)
 // - "supabase": a tela atualiza na hora e a gravação no banco acontece
 //   em seguida, em segundo plano — é o "salvar automático".
 
 export type StoreMode = "mock" | "supabase";
+
+// ── Persistência local (modo mock) ───────────────────────────────────────────
+const LOCAL_KEY = "planner_data_v1";
+
+interface LocalData {
+  projects: Project[];
+  tasks: Task[];
+  quickWins: QuickWin[];
+  priorities: Priority[];
+  followups: Followup[];
+  goals: MonthlyGoal[];
+}
+
+function tryLoadLocal(): LocalData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    return raw ? (JSON.parse(raw) as LocalData) : null;
+  } catch { return null; }
+}
+
+function trySaveLocal(data: LocalData): void {
+  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch {}
+}
 
 const uid = () => crypto.randomUUID();
 const nowISO = () => new Date().toISOString();
@@ -78,12 +102,26 @@ export function useAppStore(mode: StoreMode): AppStore {
 
   const [loading, setLoading] = useState(mode === "supabase");
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [projects, setProjects] = useState<Project[]>(db ? [] : mockProjects);
-  const [tasks, setTasks] = useState<Task[]>(db ? [] : mockTasks);
-  const [quickWins, setQuickWins] = useState<QuickWin[]>(db ? [] : mockQuickWins);
-  const [priorities, setPriorities] = useState<Priority[]>(db ? [] : mockPriorities);
-  const [followups, setFollowups] = useState<Followup[]>(db ? [] : mockFollowups);
-  const [goals, setGoals] = useState<MonthlyGoal[]>(db ? [] : mockGoals);
+
+  // Mock mode: inicializa do localStorage (fallback para dados de exemplo).
+  const [projects, setProjects] = useState<Project[]>(() =>
+    db ? [] : (tryLoadLocal()?.projects ?? mockProjects)
+  );
+  const [tasks, setTasks] = useState<Task[]>(() =>
+    db ? [] : (tryLoadLocal()?.tasks ?? mockTasks)
+  );
+  const [quickWins, setQuickWins] = useState<QuickWin[]>(() =>
+    db ? [] : (tryLoadLocal()?.quickWins ?? mockQuickWins)
+  );
+  const [priorities, setPriorities] = useState<Priority[]>(() =>
+    db ? [] : (tryLoadLocal()?.priorities ?? mockPriorities)
+  );
+  const [followups, setFollowups] = useState<Followup[]>(() =>
+    db ? [] : (tryLoadLocal()?.followups ?? mockFollowups)
+  );
+  const [goals, setGoals] = useState<MonthlyGoal[]>(() =>
+    db ? [] : (tryLoadLocal()?.goals ?? mockGoals)
+  );
 
   // Espelhos do estado atual, para as ações que precisam calcular algo
   // (ex.: marcar todas as subtarefas) sem depender de estado desatualizado.
@@ -95,6 +133,12 @@ export function useAppStore(mode: StoreMode): AppStore {
   useEffect(() => {
     goalsRef.current = goals;
   }, [goals]);
+
+  // Mock mode: salva no localStorage sempre que qualquer dado muda.
+  useEffect(() => {
+    if (db) return;
+    trySaveLocal({ projects, tasks, quickWins, priorities, followups, goals });
+  }, [db, projects, tasks, quickWins, priorities, followups, goals]);
 
   // Carga inicial vinda do banco (modo supabase).
   useEffect(() => {
