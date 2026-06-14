@@ -56,8 +56,8 @@ export const DEFAULT_BLOCKS: PlannerBlock[] = [
   { id: "mini-calendar",  type: "mini-calendar",  emoji: "📅", label: "Mini Calendário",          visible: false, column: 1, order: 9 },
   { id: "weather",        type: "weather",        emoji: "🌤", label: "Tempo",                    visible: false, column: 1, order: 10 },
   // Column 2 – Projetos
-  { id: "objetivo",       type: "objetivo",       emoji: "🎯", label: "Objetivos",                visible: true,  column: 2, order: 0 },
-  { id: "projects",       type: "projects",       emoji: "📁", label: "Projetos",                 visible: false, column: 2, order: 1 },
+  { id: "projects",       type: "projects",       emoji: "📁", label: "Projetos",                 visible: true,  column: 2, order: 0 },
+  { id: "objetivo",       type: "objetivo",       emoji: "🎯", label: "Objetivos",                visible: true,  column: 2, order: 1 },
   { id: "quick-kanban",   type: "quick-kanban",   emoji: "🗂",  label: "Kanban Rápido",            visible: false, column: 2, order: 2 },
   // Column 3 – Planner
   { id: "planner",        type: "planner",        emoji: "📆", label: "Calendário / Planner",     visible: false, column: 3, order: 0 },
