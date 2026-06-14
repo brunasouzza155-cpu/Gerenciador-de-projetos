@@ -24,7 +24,6 @@ export function ObjetivoCard({ project, store }: { project: Project; store: AppS
     >
       <div className="px-3 pt-2.5 pb-2 hairline-b">
         <div className="flex items-baseline gap-2 flex-wrap">
-          <span className="text-[10px] tracking-[0.2em] text-muted">{project.code}</span>
           <button
             className="font-semibold text-[13px] uppercase tracking-wide text-left"
             onClick={() => setOpen(!open)}
@@ -64,19 +63,18 @@ export function ObjetivoCard({ project, store }: { project: Project; store: AppS
           </p>
         )}
 
-        <div className="mt-2 flex gap-2">
+        <div className="mt-2 flex gap-2 flex-wrap">
           <button className="ink-btn" onClick={() => setEditing(!editing)}>
             {editing ? "fechar edição" : "editar objetivo"}
           </button>
-          {!project.archived &&
-            (project.status === "concluido" || project.status === "cancelado") && (
-              <button
-                className="ink-btn"
-                onClick={() => store.updateProject(project.id, { archived: true })}
-              >
-                arquivar
-              </button>
-            )}
+          {!project.archived && (
+            <button
+              className="ink-btn"
+              onClick={() => store.updateProject(project.id, { archived: true })}
+            >
+              arquivar
+            </button>
+          )}
           {project.archived && (
             <button
               className="ink-btn"
@@ -134,7 +132,6 @@ export function ObjetivoForm({
   onCancel: () => void;
 }) {
   const [f, setF] = useState({
-    code: initial.code,
     name: initial.name,
     status: initial.status as ProjectStatus,
     health: initial.health as Health,
@@ -154,7 +151,7 @@ export function ObjetivoForm({
         if (!f.name.trim()) return;
         onSave({
           workspace: initial.workspace,
-          code: f.code.trim(),
+          code: "",
           name: f.name.trim(),
           status: f.status,
           health: f.health,
@@ -169,13 +166,9 @@ export function ObjetivoForm({
         });
       }}
     >
-      <label className="flex flex-col gap-0.5">
-        <span className="text-muted uppercase tracking-wider text-[9px]">Código</span>
-        <input className="ink-input" value={f.code} onChange={(e) => set("code", e.target.value)} />
-      </label>
-      <label className="flex flex-col gap-0.5">
-        <span className="text-muted uppercase tracking-wider text-[9px]">Nome</span>
-        <input className="ink-input" value={f.name} onChange={(e) => set("name", e.target.value)} required />
+      <label className="col-span-2 flex flex-col gap-0.5">
+        <span className="text-muted uppercase tracking-wider text-[9px]">Nome do objetivo</span>
+        <input className="ink-input" value={f.name} onChange={(e) => set("name", e.target.value)} required autoFocus />
       </label>
       <label className="flex flex-col gap-0.5">
         <span className="text-muted uppercase tracking-wider text-[9px]">Status</span>
@@ -206,13 +199,13 @@ export function ObjetivoForm({
         <input type="date" className="ink-input" value={f.dueDate} onChange={(e) => set("dueDate", e.target.value)} />
       </label>
       {showStopped && (
-        <label className="flex flex-col gap-0.5">
+        <label className="col-span-2 flex flex-col gap-0.5">
           <span className="text-muted uppercase tracking-wider text-[9px]">Data em que parou</span>
           <input type="date" className="ink-input" value={f.stoppedDate} onChange={(e) => set("stoppedDate", e.target.value)} />
         </label>
       )}
       <label className="col-span-2 flex flex-col gap-0.5">
-        <span className="text-muted uppercase tracking-wider text-[9px]">Notas / riscos / decisões</span>
+        <span className="text-muted uppercase tracking-wider text-[9px]">Notas / observações</span>
         <textarea className="ink-input" rows={3} value={f.notes} onChange={(e) => set("notes", e.target.value)} />
       </label>
       <div className="col-span-2 flex gap-2 justify-end">
@@ -223,9 +216,16 @@ export function ObjetivoForm({
   );
 }
 
-export function ObjetivosBlock({ store, workspace }: { store: AppStore; workspace: Workspace }) {
+export function ObjetivosBlock({
+  store,
+  workspace,
+  showArchived,
+}: {
+  store: AppStore;
+  workspace: Workspace;
+  showArchived: boolean;
+}) {
   const [creating, setCreating] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
   const today = todayISO();
 
   const objetivos = store.projects.filter(
@@ -234,7 +234,7 @@ export function ObjetivosBlock({ store, workspace }: { store: AppStore; workspac
 
   return (
     <div>
-      <div className="section-bar">Objetivos</div>
+      <div className="section-bar">Objetivo</div>
       <div className="flex flex-col gap-3 mt-3">
         {creating && (
           <ObjetivoForm
@@ -266,19 +266,13 @@ export function ObjetivosBlock({ store, workspace }: { store: AppStore; workspac
           <ObjetivoCard key={p.id} project={p} store={store} />
         ))}
       </div>
-      <div className="mt-3 flex gap-2">
-        {!creating && (
+      {!creating && (
+        <div className="mt-3">
           <button className="ink-btn text-[10px]" onClick={() => setCreating(true)}>
             + novo objetivo
           </button>
-        )}
-        <button
-          className={`ink-btn text-[10px] ${showArchived ? "ink-btn-solid" : ""}`}
-          onClick={() => setShowArchived(!showArchived)}
-        >
-          {showArchived ? "✓ arquivados" : "arquivados"}
-        </button>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

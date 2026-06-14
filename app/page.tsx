@@ -124,6 +124,11 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
     [plannerBlocks]
   );
 
+  const hasProjectsBlock = useMemo(
+    () => activeBlocks.some((b) => b.type === "projects"),
+    [activeBlocks]
+  );
+
   const col1Blocks = useMemo(
     () => activeBlocks.filter((b) => b.column === 1).sort((a, b) => a.order - b.order),
     [activeBlocks]
@@ -211,7 +216,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
       case "quick-kanban":
         return <QuickKanbanWidget />;
       case "objetivo":
-        return <ObjetivosBlock store={store} workspace={workspace} />;
+        return <ObjetivosBlock store={store} workspace={workspace} showArchived={showArchived} />;
       default:
         return null;
     }
@@ -261,6 +266,8 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
         onSwitchPlanner={handleSwitchPlanner}
         onBlocksChange={handleBlocksChange}
         onNameChange={handlePlannerNameChange}
+        showArchived={showArchived}
+        onShowArchivedChange={setShowArchived}
       />
 
       <main className="min-h-screen bg-kraft py-4 px-2 sm:py-8 sm:px-4">
@@ -275,6 +282,19 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
             >
               ☰ menu
             </button>
+
+            {mode === "supabase" ? (
+              <button
+                className="absolute right-0 top-0 ink-btn py-2 px-4 text-[12px]"
+                onClick={signOut}
+              >
+                sair
+              </button>
+            ) : (
+              <span className="absolute right-0 top-0 text-[9px] uppercase tracking-wider text-muted border border-dashed border-hairline px-3 py-1.5 rounded-full">
+                demo
+              </span>
+            )}
 
             <h1 className="text-2xl sm:text-3xl font-semibold uppercase tracking-[0.3em] font-serif-note not-italic">
               {plannerName}
@@ -294,64 +314,55 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
               )}
               <input
                 className="ink-input !w-[180px] sm:!w-[220px]"
-                placeholder="buscar projeto ou tarefa…"
+                placeholder="buscar…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <button
-                className={`ink-btn ${showArchived ? "ink-btn-solid" : ""}`}
-                onClick={() => setShowArchived(!showArchived)}
-              >
-                {showArchived ? "✓ arquivados" : "arquivados"}
-              </button>
-              <button className="ink-btn ink-btn-solid" onClick={() => setCreating(!creating)}>
-                + novo projeto
-              </button>
-              {mode === "supabase" ? (
-                <button className="ink-btn" onClick={signOut}>sair</button>
-              ) : (
-                <span className="text-[9px] uppercase tracking-wider text-muted border border-dashed border-hairline px-3 py-1.5 rounded-full">
-                  modo demonstração
-                </span>
+              {hasProjectsBlock && (
+                <button className="ink-btn ink-btn-solid" onClick={() => setCreating(!creating)}>
+                  + novo projeto
+                </button>
               )}
             </div>
 
-            {/* Filtros por status */}
-            <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-              <button
-                className={`text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all ${
-                  statusFilter === null
-                    ? "border-ink bg-ink text-paper"
-                    : "border-hairline text-muted hover:border-ink hover:text-ink"
-                }`}
-                onClick={() => setStatusFilter(null)}
-              >
-                todos · {wsProjects.filter((p) => p.archived === showArchived).length}
-              </button>
-              {STATUS_ORDER.map((s) => {
-                const n = countByStatus(s);
-                if (n === 0) return null;
-                const active = statusFilter === s;
-                return (
-                  <button
-                    key={s}
-                    className="text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all"
-                    style={
-                      active
-                        ? { background: STATUS_META[s].color, borderColor: STATUS_META[s].color, color: "#FAF8F3" }
-                        : { borderColor: "#D9D2C2", color: STATUS_META[s].color }
-                    }
-                    onClick={() => setStatusFilter(active ? null : s)}
-                  >
-                    {STATUS_META[s].label} · {n}
-                  </button>
-                );
-              })}
-            </div>
+            {/* Filtros por status — só visíveis quando o bloco Projetos está ativo */}
+            {hasProjectsBlock && (
+              <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                <button
+                  className={`text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all ${
+                    statusFilter === null
+                      ? "border-ink bg-ink text-paper"
+                      : "border-hairline text-muted hover:border-ink hover:text-ink"
+                  }`}
+                  onClick={() => setStatusFilter(null)}
+                >
+                  todos · {wsProjects.filter((p) => p.archived === showArchived).length}
+                </button>
+                {STATUS_ORDER.map((s) => {
+                  const n = countByStatus(s);
+                  if (n === 0) return null;
+                  const active = statusFilter === s;
+                  return (
+                    <button
+                      key={s}
+                      className="text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all"
+                      style={
+                        active
+                          ? { background: STATUS_META[s].color, borderColor: STATUS_META[s].color, color: "#FAF8F3" }
+                          : { borderColor: "#D9D2C2", color: STATUS_META[s].color }
+                      }
+                      onClick={() => setStatusFilter(active ? null : s)}
+                    >
+                      {STATUS_META[s].label} · {n}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </header>
 
           {/* Formulário de novo projeto */}
-          {creating && (
+          {creating && hasProjectsBlock && (
             <div className="mt-6 max-w-xl mx-auto">
               <div className="section-bar">Novo projeto</div>
               <ProjectForm

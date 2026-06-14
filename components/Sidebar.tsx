@@ -22,6 +22,8 @@ interface SidebarProps {
   onSwitchPlanner: (id: string | null) => void;
   onBlocksChange: (blocks: PlannerBlock[]) => void;
   onNameChange?: (name: string) => void;
+  showArchived: boolean;
+  onShowArchivedChange: (v: boolean) => void;
 }
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -32,6 +34,8 @@ export function Sidebar({
   onSwitchPlanner,
   onBlocksChange,
   onNameChange,
+  showArchived,
+  onShowArchivedChange,
 }: SidebarProps) {
   const [planners, setPlanners] = useState<PlannerConfig[]>([]);
   const [defaultMeta, setDefaultMeta] = useState({ name: "Planner", emoji: "📓" });
@@ -172,6 +176,27 @@ export function Sidebar({
                 />
               ))}
             </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-hairline" />
+
+          {/* Arquivados */}
+          <div>
+            <p className="text-[9px] uppercase tracking-[0.25em] text-muted font-semibold mb-3">
+              Filtros
+            </p>
+            <button
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[12px] font-medium transition-all border ${
+                showArchived
+                  ? "bg-ink text-paper border-ink"
+                  : "border-hairline text-ink hover:bg-tan-soft/60"
+              }`}
+              onClick={() => onShowArchivedChange(!showArchived)}
+            >
+              <span className="text-[16px]">📦</span>
+              <span>{showArchived ? "✓ Ver arquivados" : "Ver arquivados"}</span>
+            </button>
           </div>
 
           {/* Divider */}

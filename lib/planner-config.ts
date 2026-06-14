@@ -21,7 +21,7 @@ export interface PlannerBlock {
 }
 
 export type PlannerTemplateKey =
-  | "estudos" | "profissional" | "pessoal" | "viagem" | "saude" | "criativo" | "blank";
+  | "estudos" | "profissional" | "pessoal" | "viagem" | "saude" | "criativo" | "projeto" | "blank";
 
 export interface PlannerTemplate {
   key: PlannerTemplateKey;
@@ -56,8 +56,8 @@ export const DEFAULT_BLOCKS: PlannerBlock[] = [
   { id: "mini-calendar",  type: "mini-calendar",  emoji: "📅", label: "Mini Calendário",          visible: false, column: 1, order: 9 },
   { id: "weather",        type: "weather",        emoji: "🌤", label: "Tempo",                    visible: false, column: 1, order: 10 },
   // Column 2 – Projetos
-  { id: "projects",       type: "projects",       emoji: "📁", label: "Projetos",                 visible: true,  column: 2, order: 0 },
-  { id: "objetivo",       type: "objetivo",       emoji: "🎯", label: "Objetivos",                visible: true,  column: 2, order: 1 },
+  { id: "objetivo",       type: "objetivo",       emoji: "🎯", label: "Objetivo",                 visible: true,  column: 2, order: 0 },
+  { id: "projects",       type: "projects",       emoji: "📁", label: "Projetos",                 visible: false, column: 2, order: 1 },
   { id: "quick-kanban",   type: "quick-kanban",   emoji: "🗂",  label: "Kanban Rápido",            visible: false, column: 2, order: 2 },
   // Column 3 – Planner
   { id: "planner",        type: "planner",        emoji: "📆", label: "Calendário / Planner",     visible: false, column: 3, order: 0 },
@@ -151,11 +151,19 @@ export const PLANNER_TEMPLATES: PlannerTemplate[] = [
     suggestedTheme: "retropop",
   },
   {
+    key: "projeto",
+    name: "Planner Projeto",
+    emoji: "📁",
+    description: "Gestão completa de projetos com portfólio, acompanhamentos e resumo executivo.",
+    suggestedBlocks: ["priorities", "today", "projects", "planner", "upcoming", "followups", "activities", "summary"],
+    suggestedTheme: "editorial",
+  },
+  {
     key: "blank",
     name: "Em branco",
     emoji: "📄",
     description: "Comece do zero e monte seu planner do seu jeito.",
-    suggestedBlocks: ["priorities", "today", "projects"],
+    suggestedBlocks: ["priorities", "today", "objetivo"],
   },
 ];
 
