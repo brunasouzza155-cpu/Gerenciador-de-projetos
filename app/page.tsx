@@ -301,91 +301,25 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
             </h1>
             <p className="text-[12px] font-serif-note text-muted mt-1">{fmtLong(today)}</p>
 
-            {/* Linha de utilidades */}
-            <div className="mt-5 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+            {/* Status + Busca — alinhados à esquerda */}
+            <div className="mt-5 flex items-center gap-2">
               {overdueCount > 0 ? (
-                <span className="text-[10px] uppercase tracking-wider text-paper bg-alert px-3 py-1.5 font-semibold rounded-full">
+                <span className="text-[10px] uppercase tracking-wider text-paper bg-alert px-3 py-1.5 font-semibold rounded-full shrink-0">
                   ⚠ {overdueCount} {overdueCount === 1 ? "atrasada" : "atrasadas"}
                 </span>
               ) : (
-                <span className="text-[10px] uppercase tracking-wider text-muted border border-hairline px-3 py-1.5 rounded-full">
+                <span className="text-[10px] uppercase tracking-wider text-muted border border-hairline px-3 py-1.5 rounded-full shrink-0">
                   ✓ em dia
                 </span>
               )}
               <input
-                className="ink-input !w-[180px] sm:!w-[220px]"
+                className="ink-input !w-[180px] sm:!w-[240px]"
                 placeholder="buscar…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              {hasProjectsBlock && (
-                <button className="ink-btn ink-btn-solid" onClick={() => setCreating(!creating)}>
-                  + novo projeto
-                </button>
-              )}
             </div>
-
-            {/* Filtros por status — só visíveis quando o bloco Projetos está ativo */}
-            {hasProjectsBlock && (
-              <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-                <button
-                  className={`text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all ${
-                    statusFilter === null
-                      ? "border-ink bg-ink text-paper"
-                      : "border-hairline text-muted hover:border-ink hover:text-ink"
-                  }`}
-                  onClick={() => setStatusFilter(null)}
-                >
-                  todos · {wsProjects.filter((p) => p.archived === showArchived).length}
-                </button>
-                {STATUS_ORDER.map((s) => {
-                  const n = countByStatus(s);
-                  if (n === 0) return null;
-                  const active = statusFilter === s;
-                  return (
-                    <button
-                      key={s}
-                      className="text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all"
-                      style={
-                        active
-                          ? { background: STATUS_META[s].color, borderColor: STATUS_META[s].color, color: "#FAF8F3" }
-                          : { borderColor: "#D9D2C2", color: STATUS_META[s].color }
-                      }
-                      onClick={() => setStatusFilter(active ? null : s)}
-                    >
-                      {STATUS_META[s].label} · {n}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
           </header>
-
-          {/* Formulário de novo projeto */}
-          {creating && hasProjectsBlock && (
-            <div className="mt-6 max-w-xl mx-auto">
-              <div className="section-bar">Novo projeto</div>
-              <ProjectForm
-                initial={{
-                  workspace,
-                  code: "",
-                  name: "",
-                  status: "andamento",
-                  health: 0,
-                  startDate: today,
-                  dueDate: null,
-                  stoppedDate: null,
-                  gains: null,
-                  fte: null,
-                  notes: "",
-                  archived: false,
-                  kind: "projeto",
-                }}
-                onSave={(data) => { store.addProject(data); setCreating(false); }}
-                onCancel={() => setCreating(false)}
-              />
-            </div>
-          )}
 
           {/* Colunas dinâmicas */}
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_1.6fr_1fr] gap-5 items-start">
@@ -429,12 +363,76 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
                 if (block.type === "projects") {
                   return (
                     <div key={block.id} className="flex flex-col gap-4" style={colorStyle}>
-                      {visibleProjects.length === 0 && (
+                      {/* Controles do bloco Projetos */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {!creating && (
+                          <button className="ink-btn ink-btn-solid text-[10px]" onClick={() => setCreating(true)}>
+                            + novo projeto
+                          </button>
+                        )}
+                        <button
+                          className={`text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all ${
+                            statusFilter === null
+                              ? "border-ink bg-ink text-paper"
+                              : "border-hairline text-muted hover:border-ink hover:text-ink"
+                          }`}
+                          onClick={() => setStatusFilter(null)}
+                        >
+                          todos · {wsProjects.filter((p) => p.archived === showArchived).length}
+                        </button>
+                        {STATUS_ORDER.map((s) => {
+                          const n = countByStatus(s);
+                          if (n === 0) return null;
+                          const isActive = statusFilter === s;
+                          return (
+                            <button
+                              key={s}
+                              className="text-[9px] uppercase tracking-wider px-3 py-1.5 rounded-full border transition-all"
+                              style={
+                                isActive
+                                  ? { background: STATUS_META[s].color, borderColor: STATUS_META[s].color, color: "#FAF8F3" }
+                                  : { borderColor: "#D9D2C2", color: STATUS_META[s].color }
+                              }
+                              onClick={() => setStatusFilter(isActive ? null : s)}
+                            >
+                              {STATUS_META[s].label} · {n}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Formulário de novo projeto */}
+                      {creating && (
+                        <div>
+                          <div className="section-bar">Novo projeto</div>
+                          <ProjectForm
+                            initial={{
+                              workspace,
+                              code: "",
+                              name: "",
+                              status: "andamento",
+                              health: 0,
+                              startDate: today,
+                              dueDate: null,
+                              stoppedDate: null,
+                              gains: null,
+                              fte: null,
+                              notes: "",
+                              archived: false,
+                              kind: "projeto",
+                            }}
+                            onSave={(data) => { store.addProject(data); setCreating(false); }}
+                            onCancel={() => setCreating(false)}
+                          />
+                        </div>
+                      )}
+
+                      {visibleProjects.length === 0 && !creating && (
                         <div className="bg-paper border border-hairline p-6 text-center">
                           <p className="text-[12px] font-serif-note text-muted">
                             {showArchived
                               ? "Nenhum projeto arquivado aqui."
-                              : "Nenhum projeto neste filtro. Crie um com '+ novo projeto'."}
+                              : "Nenhum projeto neste filtro."}
                           </p>
                         </div>
                       )}
