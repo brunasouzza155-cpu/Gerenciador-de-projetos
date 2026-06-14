@@ -32,31 +32,35 @@ import {
 // - "mock": persiste em localStorage (sobrevive a recargas da página)
 // - "supabase": a tela atualiza na hora e a gravação no banco acontece
 //   em seguida, em segundo plano — é o "salvar automático".
+//   Em ambos os modos os dados são gravados em localStorage de forma
+//   síncrona dentro de cada setter, garantindo que nada se perca ao
+//   fechar a aba antes do próximo ciclo de render.
 
 export type StoreMode = "mock" | "supabase";
 
-// ── Persistência local (modo mock) ───────────────────────────────────────────
-const LOCAL_KEY = "planner_data_v1";
+// ── Persistência local (síncrona) ────────────────────────────────────────────
+// Chaves separadas por entidade para poder salvar UMA de cada vez de
+// forma síncrona dentro do setter, sem precisar do estado das outras.
+const LK = {
+  projects:   "planner_projects_v1",
+  tasks:      "planner_tasks_v1",
+  quickWins:  "planner_quickwins_v1",
+  priorities: "planner_priorities_v1",
+  followups:  "planner_followups_v1",
+  goals:      "planner_goals_v1",
+} as const;
 
-interface LocalData {
-  projects: Project[];
-  tasks: Task[];
-  quickWins: QuickWin[];
-  priorities: Priority[];
-  followups: Followup[];
-  goals: MonthlyGoal[];
+function saveLocal<T>(key: string, data: T): void {
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch {}
 }
 
-function tryLoadLocal(): LocalData | null {
-  if (typeof window === "undefined") return null;
+function loadLocal<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
   try {
-    const raw = localStorage.getItem(LOCAL_KEY);
-    return raw ? (JSON.parse(raw) as LocalData) : null;
-  } catch { return null; }
-}
-
-function trySaveLocal(data: LocalData): void {
-  try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch {}
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw) as T;
+  } catch {}
+  return fallback;
 }
 
 const uid = () => crypto.randomUUID();
@@ -103,24 +107,25 @@ export function useAppStore(mode: StoreMode): AppStore {
   const [loading, setLoading] = useState(mode === "supabase");
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Mock mode: inicializa do localStorage (fallback para dados de exemplo).
+  // Inicializa do localStorage; em mock usa mockData como fallback,
+  // em supabase usa [] (Supabase vai sobrescrever com fetchAll).
   const [projects, setProjects] = useState<Project[]>(() =>
-    db ? [] : (tryLoadLocal()?.projects ?? mockProjects)
+    loadLocal(LK.projects, db ? ([] as Project[]) : mockProjects)
   );
   const [tasks, setTasks] = useState<Task[]>(() =>
-    db ? [] : (tryLoadLocal()?.tasks ?? mockTasks)
+    loadLocal(LK.tasks, db ? ([] as Task[]) : mockTasks)
   );
   const [quickWins, setQuickWins] = useState<QuickWin[]>(() =>
-    db ? [] : (tryLoadLocal()?.quickWins ?? mockQuickWins)
+    loadLocal(LK.quickWins, db ? ([] as QuickWin[]) : mockQuickWins)
   );
   const [priorities, setPriorities] = useState<Priority[]>(() =>
-    db ? [] : (tryLoadLocal()?.priorities ?? mockPriorities)
+    loadLocal(LK.priorities, db ? ([] as Priority[]) : mockPriorities)
   );
   const [followups, setFollowups] = useState<Followup[]>(() =>
-    db ? [] : (tryLoadLocal()?.followups ?? mockFollowups)
+    loadLocal(LK.followups, db ? ([] as Followup[]) : mockFollowups)
   );
   const [goals, setGoals] = useState<MonthlyGoal[]>(() =>
-    db ? [] : (tryLoadLocal()?.goals ?? mockGoals)
+    loadLocal(LK.goals, db ? ([] as MonthlyGoal[]) : mockGoals)
   );
 
   // Espelhos do estado atual, para as ações que precisam calcular algo
@@ -133,12 +138,6 @@ export function useAppStore(mode: StoreMode): AppStore {
   useEffect(() => {
     goalsRef.current = goals;
   }, [goals]);
-
-  // Mock mode: salva no localStorage sempre que qualquer dado muda.
-  useEffect(() => {
-    if (db) return;
-    trySaveLocal({ projects, tasks, quickWins, priorities, followups, goals });
-  }, [db, projects, tasks, quickWins, priorities, followups, goals]);
 
   // Carga inicial vinda do banco (modo supabase).
   useEffect(() => {
@@ -165,52 +164,53 @@ export function useAppStore(mode: StoreMode): AppStore {
     };
   }, [db]);
 
+  // ── Ações — cada setter salva no localStorage de forma síncrona ─────────────
+
   const addProject: AppStore["addProject"] = useCallback((data) => {
     const t = nowISO();
     const project: Project = { ...data, id: uid(), createdAt: t, updatedAt: t };
-    setProjects((p) => [...p, project]);
+    setProjects((p) => { const n = [...p, project]; saveLocal(LK.projects, n); return n; });
     db?.from("projects").insert(projectToRow(project)).then(logDbError("criar projeto"));
   }, [db]);
 
   const updateProject: AppStore["updateProject"] = useCallback((id, patch) => {
-    setProjects((p) =>
-      p.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: nowISO() } : x))
-    );
+    setProjects((p) => {
+      const n = p.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: nowISO() } : x));
+      saveLocal(LK.projects, n);
+      return n;
+    });
     db?.from("projects").update(projectToRow(patch)).eq("id", id).then(logDbError("editar projeto"));
   }, [db]);
 
   const deleteProject: AppStore["deleteProject"] = useCallback((id) => {
-    setProjects((p) => p.filter((x) => x.id !== id));
-    setTasks((t) => t.filter((x) => x.projectId !== id));
-    setQuickWins((q) => q.filter((x) => x.projectId !== id));
-    setFollowups((f) => f.map((x) => (x.projectId === id ? { ...x, projectId: null } : x)));
-    // No banco, apagar o projeto apaga junto tarefas e quick wins (cascade).
+    setProjects((p) => { const n = p.filter((x) => x.id !== id); saveLocal(LK.projects, n); return n; });
+    setTasks((t)  => { const n = t.filter((x) => x.projectId !== id); saveLocal(LK.tasks, n); return n; });
+    setQuickWins((q) => { const n = q.filter((x) => x.projectId !== id); saveLocal(LK.quickWins, n); return n; });
+    setFollowups((f) => {
+      const n = f.map((x) => (x.projectId === id ? { ...x, projectId: null } : x));
+      saveLocal(LK.followups, n);
+      return n;
+    });
     db?.from("projects").delete().eq("id", id).then(logDbError("excluir projeto"));
   }, [db]);
 
   const addTask: AppStore["addTask"] = useCallback((projectId, parentId, title, dueDate = null) => {
     const t = nowISO();
     const task: Task = {
-      id: uid(),
-      projectId,
-      parentId,
-      title,
-      done: false,
-      dueDate,
-      tag: null,
-      tagDueDate: null,
-      sortOrder: tasksRef.current.length,
-      createdAt: t,
-      updatedAt: t,
+      id: uid(), projectId, parentId, title,
+      done: false, dueDate, tag: null, tagDueDate: null,
+      sortOrder: tasksRef.current.length, createdAt: t, updatedAt: t,
     };
-    setTasks((ts) => [...ts, task]);
+    setTasks((ts) => { const n = [...ts, task]; saveLocal(LK.tasks, n); return n; });
     db?.from("tasks").insert(taskToRow(task)).then(logDbError("criar tarefa"));
   }, [db]);
 
   const updateTask: AppStore["updateTask"] = useCallback((id, patch) => {
-    setTasks((ts) =>
-      ts.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: nowISO() } : x))
-    );
+    setTasks((ts) => {
+      const n = ts.map((x) => (x.id === id ? { ...x, ...patch, updatedAt: nowISO() } : x));
+      saveLocal(LK.tasks, n);
+      return n;
+    });
     db?.from("tasks").update(taskToRow(patch)).eq("id", id).then(logDbError("editar tarefa"));
   }, [db]);
 
@@ -219,62 +219,69 @@ export function useAppStore(mode: StoreMode): AppStore {
     const ids = [id, ...descendantIds(tasksRef.current, id)];
     const idSet = new Set(ids);
     const t = nowISO();
-    setTasks((ts) => ts.map((x) => (idSet.has(x.id) ? { ...x, done, updatedAt: t } : x)));
+    setTasks((ts) => {
+      const n = ts.map((x) => (idSet.has(x.id) ? { ...x, done, updatedAt: t } : x));
+      saveLocal(LK.tasks, n);
+      return n;
+    });
     db?.from("tasks").update({ done }).in("id", ids).then(logDbError("concluir tarefa"));
   }, [db]);
 
   const deleteTask: AppStore["deleteTask"] = useCallback((id) => {
     const idSet = new Set([id, ...descendantIds(tasksRef.current, id)]);
-    setTasks((ts) => ts.filter((x) => !idSet.has(x.id)));
-    // No banco, apagar a mãe apaga as filhas (cascade).
+    setTasks((ts) => { const n = ts.filter((x) => !idSet.has(x.id)); saveLocal(LK.tasks, n); return n; });
     db?.from("tasks").delete().eq("id", id).then(logDbError("excluir tarefa"));
   }, [db]);
 
   const addQuickWin: AppStore["addQuickWin"] = useCallback((data) => {
     const win: QuickWin = { ...data, id: uid(), done: false };
-    setQuickWins((q) => [...q, win]);
+    setQuickWins((q) => { const n = [...q, win]; saveLocal(LK.quickWins, n); return n; });
     db?.from("quick_wins").insert(quickWinToRow(win)).then(logDbError("criar quick win"));
   }, [db]);
 
   const toggleQuickWin: AppStore["toggleQuickWin"] = useCallback((id, done) => {
-    setQuickWins((q) => q.map((x) => (x.id === id ? { ...x, done } : x)));
+    setQuickWins((q) => { const n = q.map((x) => (x.id === id ? { ...x, done } : x)); saveLocal(LK.quickWins, n); return n; });
     db?.from("quick_wins").update({ done }).eq("id", id).then(logDbError("concluir quick win"));
   }, [db]);
 
   const deleteQuickWin: AppStore["deleteQuickWin"] = useCallback((id) => {
-    setQuickWins((q) => q.filter((x) => x.id !== id));
+    setQuickWins((q) => { const n = q.filter((x) => x.id !== id); saveLocal(LK.quickWins, n); return n; });
     db?.from("quick_wins").delete().eq("id", id).then(logDbError("excluir quick win"));
   }, [db]);
 
   const addPriority: AppStore["addPriority"] = useCallback((data) => {
     const priority: Priority = { ...data, id: uid(), done: false };
-    setPriorities((p) => [...p, priority]);
+    setPriorities((p) => { const n = [...p, priority]; saveLocal(LK.priorities, n); return n; });
     db?.from("priorities").insert(priority).then(logDbError("criar prioridade"));
   }, [db]);
 
   const togglePriority: AppStore["togglePriority"] = useCallback((id, done) => {
-    setPriorities((p) => p.map((x) => (x.id === id ? { ...x, done } : x)));
+    setPriorities((p) => { const n = p.map((x) => (x.id === id ? { ...x, done } : x)); saveLocal(LK.priorities, n); return n; });
     db?.from("priorities").update({ done }).eq("id", id).then(logDbError("concluir prioridade"));
   }, [db]);
 
   const deletePriority: AppStore["deletePriority"] = useCallback((id) => {
-    setPriorities((p) => p.filter((x) => x.id !== id));
+    setPriorities((p) => { const n = p.filter((x) => x.id !== id); saveLocal(LK.priorities, n); return n; });
     db?.from("priorities").delete().eq("id", id).then(logDbError("excluir prioridade"));
   }, [db]);
 
   const addFollowup: AppStore["addFollowup"] = useCallback((data) => {
     const followup: Followup = { ...data, id: uid(), done: false };
-    setFollowups((f) => [...f, followup]);
+    setFollowups((f) => { const n = [...f, followup]; saveLocal(LK.followups, n); return n; });
     db?.from("followups").insert(followupToRow(followup)).then(logDbError("criar acompanhamento"));
   }, [db]);
 
   const updateFollowup: AppStore["updateFollowup"] = useCallback((id, patch) => {
-    setFollowups((f) => f.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+    setFollowups((f) => {
+      const n = f.map((x) => (x.id === id ? { ...x, ...patch } : x));
+      saveLocal(LK.followups, n);
+      return n;
+    });
     db?.from("followups").update(followupToRow(patch)).eq("id", id).then(logDbError("editar acompanhamento"));
   }, [db]);
 
   const deleteFollowup: AppStore["deleteFollowup"] = useCallback((id) => {
-    setFollowups((f) => f.filter((x) => x.id !== id));
+    setFollowups((f) => { const n = f.filter((x) => x.id !== id); saveLocal(LK.followups, n); return n; });
     db?.from("followups").delete().eq("id", id).then(logDbError("excluir acompanhamento"));
   }, [db]);
 
@@ -284,14 +291,18 @@ export function useAppStore(mode: StoreMode): AppStore {
       (g) => g.workspace === data.workspace && g.month === data.month
     );
     if (existing) {
-      setGoals((gs) => gs.map((g) => (g.id === existing.id ? { ...g, ...data } : g)));
+      setGoals((gs) => {
+        const n = gs.map((g) => (g.id === existing.id ? { ...g, ...data } : g));
+        saveLocal(LK.goals, n);
+        return n;
+      });
       db?.from("monthly_goals")
         .update({ goal: data.goal, how: data.how })
         .eq("id", existing.id)
         .then(logDbError("editar meta"));
     } else {
       const goal: MonthlyGoal = { ...data, id: uid() };
-      setGoals((gs) => [...gs, goal]);
+      setGoals((gs) => { const n = [...gs, goal]; saveLocal(LK.goals, n); return n; });
       db?.from("monthly_goals").insert(goal).then(logDbError("criar meta"));
     }
   }, [db]);
