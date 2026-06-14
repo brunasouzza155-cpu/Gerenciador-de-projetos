@@ -413,7 +413,7 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
                     const overdue = leaves.filter((t) => !t.done && t.dueDate && t.dueDate < today).length;
                     const done   = leaves.filter((t) => t.done).length;
                     return (
-                      <div key={p.id} className="px-4 py-3">
+                      <div key={p.id} className="px-4 py-3 group">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-[9px] tracking-[0.2em] text-muted w-16 shrink-0">{p.code}</span>
                           <span className="flex-1 text-[12px] font-medium">{p.name}</span>
@@ -426,6 +426,17 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
                           {p.gains && (
                             <span className="text-[10px] text-muted shrink-0">{fmtBRL(p.gains)}</span>
                           )}
+                          <button
+                            className="text-[11px] px-1.5 py-0.5 text-muted hover:text-alert hover:bg-alert/10 rounded transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                            title="Excluir projeto"
+                            onClick={() => {
+                              if (confirm(`Excluir o projeto "${p.name}" e todas as suas tarefas? Essa ação não tem volta.`)) {
+                                store.deleteProject(p.id);
+                              }
+                            }}
+                          >
+                            ×
+                          </button>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-1.5 border border-hairline">
@@ -459,7 +470,7 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
                     const leaves = projectLeaves(store.tasks, p.id);
                     const done   = leaves.filter((t) => t.done).length;
                     return (
-                      <div key={p.id} className="px-4 py-3">
+                      <div key={p.id} className="px-4 py-3 group">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-[14px] shrink-0">{HEALTH_META[p.health].emoji}</span>
                           <span className="flex-1 text-[12px] font-medium">{p.name}</span>
@@ -469,6 +480,17 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
                           >
                             {STATUS_META[p.status].label}
                           </span>
+                          <button
+                            className="text-[11px] px-1.5 py-0.5 text-muted hover:text-alert hover:bg-alert/10 rounded transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                            title="Excluir objetivo"
+                            onClick={() => {
+                              if (confirm(`Excluir o objetivo "${p.name}" e todas as suas tarefas? Essa ação não tem volta.`)) {
+                                store.deleteProject(p.id);
+                              }
+                            }}
+                          >
+                            ×
+                          </button>
                         </div>
                         <div className="flex items-center gap-2">
                           <div className="flex-1 h-1.5 border border-hairline">
