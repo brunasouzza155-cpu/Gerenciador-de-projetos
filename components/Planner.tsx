@@ -8,24 +8,74 @@ import {
 import { projectLeaves } from "@/lib/tree";
 import { STATUS_META } from "@/lib/theme";
 import type { AppStore } from "@/lib/store";
-import type { Project, Task } from "@/lib/types";
+import type { Project, Task, TaskTag } from "@/lib/types";
 import { SectionBar } from "./ui";
 
 type View = "semana" | "mês" | "tri" | "semestre" | "ano";
 const VIEWS: View[] = ["semana", "mês", "tri", "semestre", "ano"];
+
+type ItemTag = TaskTag | "quickwin";
+
+interface CalendarItem {
+  id: string;
+  title: string;
+  projectLabel: string;
+  tag: ItemTag;
+  done: boolean;
+  date: string;
+}
+
+const TAG_META: Record<string, { label: string; bg: string; color: string }> = {
+  rapida:         { label: "RÁPIDA",    bg: "#EFE5D4", color: "#8C7D65" },
+  acompanhamento: { label: "ACOMP.",    bg: "#E8EEF4", color: "#51677F" },
+  atividade:      { label: "ATIVIDADE", bg: "#E8F4EC", color: "#4D6B57" },
+  agenda:         { label: "AGENDA",    bg: "#F0E8F4", color: "#6B4D7F" },
+  quickwin:       { label: "WIN",       bg: "#FFF3CD", color: "#8C6D00" },
+};
+
+function buildCalendarItems(store: AppStore, projects: Project[]): CalendarItem[] {
+  const projectMap = new Map(projects.map((p) => [p.id, p]));
+  const items: CalendarItem[] = [];
+
+  const childIds = new Set(store.tasks.filter((t) => t.parentId !== null).map((t) => t.parentId!));
+
+  for (const task of store.tasks) {
+    const project = projectMap.get(task.projectId);
+    if (!project) continue;
+    const label = project.code ? `${project.code} · ${project.name}` : project.name;
+
+    if (task.tag === "acompanhamento") {
+      if (task.tagDueDate) {
+        items.push({ id: task.id, title: task.title, projectLabel: label, tag: "acompanhamento", done: task.done, date: task.tagDueDate });
+      }
+    } else if (task.tag) {
+      // atividade, rapida, agenda — use dueDate
+      if (task.dueDate) {
+        items.push({ id: task.id, title: task.title, projectLabel: label, tag: task.tag, done: task.done, date: task.dueDate });
+      }
+    } else if (task.dueDate && !childIds.has(task.id)) {
+      // Untagged leaf tasks — original behaviour
+      items.push({ id: task.id, title: task.title, projectLabel: label, tag: null, done: task.done, date: task.dueDate });
+    }
+  }
+
+  // Quick wins with a calendar date
+  for (const qw of store.quickWins) {
+    if (!qw.date) continue;
+    const project = qw.projectId ? projectMap.get(qw.projectId) : null;
+    const label = project ? (project.code ? `${project.code} · ${project.name}` : project.name) : "";
+    items.push({ id: `qw-${qw.id}`, title: qw.title, projectLabel: label, tag: "quickwin", done: qw.done, date: qw.date });
+  }
+
+  return items;
+}
 
 export function Planner({ store, projects }: { store: AppStore; projects: Project[] }) {
   const [view, setView] = useState<View>("semana");
   const [weekOffset, setWeekOffset] = useState(0);
   const today = todayISO();
 
-  // Todas as folhas com data dos projetos visíveis.
-  const dated: { task: Task; project: Project }[] = [];
-  for (const project of projects) {
-    for (const task of projectLeaves(store.tasks, project.id)) {
-      if (task.dueDate) dated.push({ task, project });
-    }
-  }
+  const calendarItems = buildCalendarItems(store, projects);
 
   return (
     <section className="bg-paper border border-hairline">
@@ -46,13 +96,13 @@ export function Planner({ store, projects }: { store: AppStore; projects: Projec
       <div className="px-3 py-2">
         {view === "semana" && (
           <WeekView
-            dated={dated}
+            items={calendarItems}
             today={today}
             weekOffset={weekOffset}
             onWeekChange={setWeekOffset}
           />
         )}
-        {view === "mês" && <MonthView dated={dated} today={today} />}
+        {view === "mês" && <MonthView items={calendarItems} today={today} />}
         {view === "tri" && <TimelineView projects={projects} today={today} months={3} />}
         {view === "semestre" && <TimelineView projects={projects} today={today} months={6} />}
         {view === "ano" && <TimelineView projects={projects} today={today} months={12} />}
@@ -61,11 +111,11 @@ export function Planner({ store, projects }: { store: AppStore; projects: Projec
   );
 }
 
-// SEMANA: lista vertical seg→dom, hoje destacado, com navegação de semanas.
+// SEMANA: lista vertical seg→dom com badges de tag e navegação de semanas.
 function WeekView({
-  dated, today, weekOffset, onWeekChange,
+  items, today, weekOffset, onWeekChange,
 }: {
-  dated: { task: Task; project: Project }[];
+  items: CalendarItem[];
   today: string;
   weekOffset: number;
   onWeekChange: (offset: number) => void;
@@ -118,7 +168,7 @@ function WeekView({
       {WEEKDAYS_PT.map((name, i) => {
         const day = addDays(monday, i);
         const isToday = day === today;
-        const items = dated.filter((d) => d.task.dueDate === day);
+        const dayItems = items.filter((item) => item.date === day);
         return (
           <div key={day} className={`flex gap-2 py-1 hairline-b ${isToday ? "bg-tan-soft -mx-1 px-1" : ""}`}>
             <div className="w-10 shrink-0">
@@ -129,18 +179,36 @@ function WeekView({
                 {day.slice(8)}
               </span>
             </div>
-            <div className="flex-1 min-w-0">
-              {items.length === 0 && <span className="text-[10px] text-hairline">—</span>}
-              {items.map(({ task, project }) => (
-                <div key={task.id} className="text-[11px] leading-snug truncate">
-                  <span className={task.done ? "line-through text-muted" : !task.done && day < today ? "text-alert" : ""}>
-                    {task.title}
-                  </span>
-                  <span className="text-[9px] text-muted">
-                    {" · "}{project.code ? `${project.code} · ${project.name}` : project.name}
-                  </span>
-                </div>
-              ))}
+            <div className="flex-1 min-w-0 space-y-0.5">
+              {dayItems.length === 0 && <span className="text-[10px] text-hairline">—</span>}
+              {dayItems.map((item) => {
+                const isOverdue = !item.done && item.date < today;
+                const tagMeta = item.tag ? TAG_META[item.tag] : null;
+                return (
+                  <div key={item.id} className="flex items-baseline gap-1 flex-wrap leading-snug">
+                    {tagMeta && (
+                      <span
+                        className="text-[8px] font-semibold tracking-[0.08em] px-1 py-[1px] rounded-[2px] shrink-0"
+                        style={{ background: tagMeta.bg, color: tagMeta.color }}
+                      >
+                        {tagMeta.label}
+                      </span>
+                    )}
+                    <span
+                      className={`text-[11px] truncate ${
+                        item.done ? "line-through text-muted" : isOverdue ? "text-alert" : ""
+                      }`}
+                    >
+                      {item.title}
+                    </span>
+                    {item.projectLabel && (
+                      <span className="text-[9px] text-muted shrink-0">
+                        · {item.projectLabel}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         );
@@ -150,7 +218,7 @@ function WeekView({
 }
 
 // MÊS: mini calendário em grade de linhas finas.
-function MonthView({ dated, today }: { dated: { task: Task; project: Project }[]; today: string }) {
+function MonthView({ items, today }: { items: CalendarItem[]; today: string }) {
   const first = monthStart(today);
   const total = daysInMonth(today);
   const firstDow = (fromISO(first).getDay() + 6) % 7; // 0 = segunda
@@ -161,7 +229,7 @@ function MonthView({ dated, today }: { dated: { task: Task; project: Project }[]
   while (cells.length % 7 !== 0) cells.push(null);
 
   const pendingDays = new Set(
-    dated.filter((d) => !d.task.done).map((d) => d.task.dueDate!)
+    items.filter((item) => !item.done).map((item) => item.date)
   );
 
   const d = fromISO(today);
@@ -244,8 +312,8 @@ function TimelineView({
               </div>
               {cols.map((m) => {
                 const mEnd = addMonths(m, 1);
-                const inRange = ps < mEnd && pe >= m; // projeto atravessa este mês
-                const isDue = dueMonth === m; // mês da entrega: cor cheia
+                const inRange = ps < mEnd && pe >= m;
+                const isDue = dueMonth === m;
                 return (
                   <div key={m} className="flex-1 h-3 border-r border-hairline last:border-r-0 px-[1px] flex items-center">
                     {inRange && (
