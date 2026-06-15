@@ -8,6 +8,7 @@ import {
   loadDefaultPlannerMeta, saveDefaultPlannerMeta,
   type PlannerBlock, type PlannerConfig,
 } from "@/lib/planner-config";
+import type { Workspace } from "@/lib/types";
 
 // Lazy-load PlannerEditor to keep sidebar bundle small
 const PlannerEditor = lazy(() =>
@@ -122,6 +123,25 @@ export function Sidebar({
     }
   };
 
+  const handleToggleWorkspace = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = planners.map((p) =>
+      p.id === id
+        ? { ...p, workspace: ((p.workspace ?? "trabalho") === "trabalho" ? "pessoal" : "trabalho") as Workspace }
+        : p
+    );
+    savePlanners(updated);
+    setPlanners(updated);
+    // If this planner is active, propagate the workspace change
+    if (activePlannerId === id) {
+      const ws = (planners.find((p) => p.id === id)?.workspace ?? "trabalho") === "trabalho"
+        ? "pessoal"
+        : "trabalho";
+      onSwitchPlanner(id); // re-triggers handleSwitchPlanner which re-reads workspace
+      void ws;
+    }
+  };
+
   if (!open) return null;
 
   const editingPlanner = editingId === null
@@ -183,10 +203,12 @@ export function Sidebar({
                   key={p.id}
                   label={p.name}
                   emoji={p.emoji}
+                  workspace={p.workspace ?? "trabalho"}
                   active={activePlannerId === p.id}
                   onClick={() => handleSwitchPlanner(p.id)}
                   onEdit={() => setEditingId(p.id)}
                   onDelete={(e) => handleDeletePlanner(p.id, e)}
+                  onToggleWorkspace={(e) => handleToggleWorkspace(p.id, e)}
                 />
               ))}
             </div>
@@ -270,17 +292,21 @@ export function Sidebar({
 function PlannerRow({
   label,
   emoji,
+  workspace,
   active,
   onClick,
   onEdit,
   onDelete,
+  onToggleWorkspace,
 }: {
   label: string;
   emoji: string;
+  workspace?: "trabalho" | "pessoal";
   active: boolean;
   onClick: () => void;
   onEdit: () => void;
   onDelete?: (e: React.MouseEvent) => void;
+  onToggleWorkspace?: (e: React.MouseEvent) => void;
 }) {
   return (
     <div
@@ -292,10 +318,28 @@ function PlannerRow({
       onClick={onClick}
     >
       <span className="text-[16px] flex-shrink-0">{emoji}</span>
-      <span className={`flex-1 text-[12px] font-medium ${active ? "text-paper" : "text-ink"}`}>
-        {label}
-      </span>
+      <div className="flex-1 min-w-0">
+        <span className={`block text-[12px] font-medium truncate ${active ? "text-paper" : "text-ink"}`}>
+          {label}
+        </span>
+        {workspace && (
+          <span className={`text-[9px] uppercase tracking-wider ${active ? "text-paper/50" : "text-muted"}`}>
+            {workspace === "trabalho" ? "🏢 trabalho" : "🏠 pessoal"}
+          </span>
+        )}
+      </div>
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        {onToggleWorkspace && (
+          <button
+            className={`text-[10px] p-1 rounded-md transition-colors ${
+              active ? "hover:bg-paper/20 text-paper/70 hover:text-paper" : "hover:bg-ink/10 text-muted hover:text-ink"
+            }`}
+            onClick={onToggleWorkspace}
+            title={`Mudar para ${workspace === "trabalho" ? "pessoal" : "trabalho"}`}
+          >
+            {workspace === "trabalho" ? "🏠" : "🏢"}
+          </button>
+        )}
         <button
           className={`text-[12px] p-1 rounded-md transition-colors ${
             active ? "hover:bg-paper/20 text-paper/70 hover:text-paper" : "hover:bg-ink/10 text-muted hover:text-ink"

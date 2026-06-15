@@ -27,8 +27,10 @@ import {
 import {
   loadPlannerConfig, loadPlannerBlocks, savePlannerConfig, savePlannerBlocks,
   getActivePlannerId, DEFAULT_BLOCKS, loadPlanners, loadDefaultPlannerMeta,
+  getPlannerWorkspace,
   type PlannerBlock,
 } from "@/lib/planner-config";
+import type { Workspace } from "@/lib/types";
 
 const subscribeNoop = () => () => {};
 
@@ -45,9 +47,8 @@ export default function Page() {
 
 function Home({ mode }: { mode: "mock" | "supabase" }) {
   const store = useAppStore(mode);
-  // Keep workspace for project filtering (internal, not exposed in sidebar)
-  const workspace = "trabalho" as const;
 
+  const [workspace, setWorkspace] = useState<Workspace>("trabalho");
   const [statusFilter, setStatusFilter] = useState<ProjectStatus | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [search, setSearch] = useState("");
@@ -61,10 +62,11 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
 
   const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
 
-  // Load planner config + name + check if tutorial should show
+  // Load planner config + name + workspace on mount
   useEffect(() => {
     const aid = getActivePlannerId();
     setActivePlannerIdState(aid);
+    setWorkspace(getPlannerWorkspace(aid));
     if (aid) {
       const ps = loadPlanners();
       const p = ps.find((pl) => pl.id === aid);
@@ -148,6 +150,11 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
 
   const handleSwitchPlanner = useCallback((id: string | null) => {
     setActivePlannerIdState(id);
+    // Switch workspace context so data shown matches this planner's scope
+    setWorkspace(getPlannerWorkspace(id));
+    // Reset filters that are workspace-specific
+    setStatusFilter(null);
+    setSearch("");
     if (id) {
       const ps = loadPlanners();
       const p = ps.find((pl) => pl.id === id);

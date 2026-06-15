@@ -38,6 +38,7 @@ export interface PlannerConfig {
   emoji: string;
   template: PlannerTemplateKey;
   blocks: PlannerBlock[];
+  workspace: "trabalho" | "pessoal";
   createdAt: string;
 }
 
@@ -219,6 +220,13 @@ export function setActivePlannerId(id: string) {
   try { localStorage.setItem(ACTIVE_KEY, id); } catch {}
 }
 
+// Templates considered "pessoal" workspace by default.
+const PERSONAL_TEMPLATES: PlannerTemplateKey[] = ["pessoal", "estudos", "saude", "viagem", "criativo"];
+
+export function templateWorkspace(key: PlannerTemplateKey): "trabalho" | "pessoal" {
+  return PERSONAL_TEMPLATES.includes(key) ? "pessoal" : "trabalho";
+}
+
 export function createPlannerFromTemplate(
   name: string,
   emoji: string,
@@ -234,9 +242,20 @@ export function createPlannerFromTemplate(
     name,
     emoji,
     template: template.key,
+    workspace: templateWorkspace(template.key),
     blocks,
     createdAt: new Date().toISOString(),
   };
+}
+
+/** Returns the workspace for the active planner (or "trabalho" for the default). */
+export function getPlannerWorkspace(plannerId: string | null): "trabalho" | "pessoal" {
+  if (!plannerId) return "trabalho";
+  try {
+    const planners = loadPlanners();
+    const found = planners.find((p) => p.id === plannerId);
+    return found?.workspace ?? "trabalho";
+  } catch { return "trabalho"; }
 }
 
 export function loadPlannerBlocks(plannerId: string): PlannerBlock[] {
