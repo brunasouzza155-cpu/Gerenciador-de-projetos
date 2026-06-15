@@ -99,6 +99,8 @@ export interface AppStore {
   deleteFollowup: (id: string) => void;
 
   saveGoal: (data: Omit<MonthlyGoal, "id">) => void;
+
+  reorderTasks: (projectId: string, parentId: string | null, orderedIds: string[]) => void;
 }
 
 export function useAppStore(mode: StoreMode): AppStore {
@@ -342,6 +344,23 @@ export function useAppStore(mode: StoreMode): AppStore {
     db?.from("followups").delete().eq("id", id).then(logDbError("excluir acompanhamento"));
   }, [db]);
 
+  const reorderTasks: AppStore["reorderTasks"] = useCallback((projectId, parentId, orderedIds) => {
+    const now = nowISO();
+    setTasks((ts) => {
+      const n = ts.map((t) => {
+        if (t.projectId !== projectId || t.parentId !== parentId) return t;
+        const idx = orderedIds.indexOf(t.id);
+        if (idx === -1) return t;
+        return { ...t, sortOrder: idx, updatedAt: now };
+      });
+      saveLocal(LK.tasks, n);
+      return n;
+    });
+    orderedIds.forEach((id, idx) => {
+      db?.from("tasks").update({ sort_order: idx, updated_at: now }).eq("id", id).then(logDbError("reordenar tarefa"));
+    });
+  }, [db]);
+
   // Cria ou atualiza a meta do mês daquele workspace.
   const saveGoal: AppStore["saveGoal"] = useCallback((data) => {
     const existing = goalsRef.current.find(
@@ -372,6 +391,6 @@ export function useAppStore(mode: StoreMode): AppStore {
     addQuickWin, toggleQuickWin, deleteQuickWin,
     addPriority, togglePriority, deletePriority,
     addFollowup, updateFollowup, deleteFollowup,
-    saveGoal,
+    saveGoal, reorderTasks,
   };
 }

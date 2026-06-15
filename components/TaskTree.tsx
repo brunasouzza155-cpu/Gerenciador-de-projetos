@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { fmtShort, todayISO } from "@/lib/dates";
 import { nodeState, type TaskNode } from "@/lib/tree";
 import type { AppStore } from "@/lib/store";
@@ -16,10 +16,56 @@ export function TaskTree({
   store: AppStore;
   depth?: number;
 }) {
+  const dragSrc = useRef<string | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+
+  if (nodes.length === 0) return null;
+
+  const parentId = nodes[0].task.parentId;
+  const projectId = nodes[0].task.projectId;
+
+  const handleDragStart = (id: string) => { dragSrc.current = id; };
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (dragSrc.current !== id) setDragOver(id);
+  };
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    setDragOver(null);
+    const srcId = dragSrc.current;
+    dragSrc.current = null;
+    if (!srcId || srcId === targetId) return;
+    const ids = nodes.map((n) => n.task.id);
+    const srcIdx = ids.indexOf(srcId);
+    const tgtIdx = ids.indexOf(targetId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+    const reordered = [...ids];
+    reordered.splice(srcIdx, 1);
+    reordered.splice(tgtIdx, 0, srcId);
+    store.reorderTasks(projectId, parentId, reordered);
+  };
+  const handleDragEnd = () => {
+    dragSrc.current = null;
+    setDragOver(null);
+  };
+
   return (
     <div>
       {nodes.map((node) => (
-        <TaskRow key={node.task.id} node={node} store={store} depth={depth} />
+        <div
+          key={node.task.id}
+          draggable
+          onDragStart={() => handleDragStart(node.task.id)}
+          onDragOver={(e) => handleDragOver(e, node.task.id)}
+          onDrop={(e) => handleDrop(e, node.task.id)}
+          onDragEnd={handleDragEnd}
+          style={{
+            opacity: dragSrc.current === node.task.id ? 0.4 : 1,
+            outline: dragOver === node.task.id ? "1px dashed var(--tan)" : undefined,
+          }}
+        >
+          <TaskRow node={node} store={store} depth={depth} />
+        </div>
       ))}
     </div>
   );
@@ -68,6 +114,14 @@ function TaskRow({
         {depth > 0 && (
           <span className="text-hairline text-[10px] shrink-0">└</span>
         )}
+        {/* Drag handle — only visible on hover */}
+        <span
+          className="text-hairline text-[10px] shrink-0 cursor-grab select-none opacity-0 group-row-hover:opacity-100"
+          title="Arrastar para reordenar"
+          style={{ touchAction: "none" }}
+        >
+          ⠿
+        </span>
         <InkCheck
           state={state}
           onToggle={() => store.toggleTask(task.id, state !== "done")}

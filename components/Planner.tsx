@@ -92,26 +92,27 @@ function WeekView({
         >
           ←
         </button>
-        <span className="text-[9px] uppercase tracking-[0.15em] text-muted">
-          {weekLabel}
-        </span>
-        {weekOffset !== 0 ? (
-          <button
-            className="ink-btn py-0.5 px-2 text-[10px]"
-            onClick={() => onWeekChange(0)}
-            title="Voltar para esta semana"
-          >
-            hoje
-          </button>
-        ) : (
-          <button
-            className="ink-btn py-0.5 px-2 text-[10px]"
-            onClick={() => onWeekChange(weekOffset + 1)}
-            title="Próxima semana"
-          >
-            →
-          </button>
-        )}
+        <div className="flex flex-col items-center gap-0.5">
+          <span className="text-[9px] uppercase tracking-[0.15em] text-muted">
+            {weekLabel}
+          </span>
+          {weekOffset !== 0 && (
+            <button
+              className="text-[8px] text-muted underline hover:text-ink leading-none"
+              onClick={() => onWeekChange(0)}
+              title="Voltar para esta semana"
+            >
+              ir para hoje
+            </button>
+          )}
+        </div>
+        <button
+          className="ink-btn py-0.5 px-2 text-[10px]"
+          onClick={() => onWeekChange(weekOffset + 1)}
+          title="Próxima semana"
+        >
+          →
+        </button>
       </div>
 
       {WEEKDAYS_PT.map((name, i) => {
