@@ -357,7 +357,7 @@ export function useAppStore(mode: StoreMode): AppStore {
       return n;
     });
     orderedIds.forEach((id, idx) => {
-      db?.from("tasks").update({ sort_order: idx, updated_at: now }).eq("id", id).then(logDbError("reordenar tarefa"));
+      db?.from("tasks").update({ sort_order: idx }).eq("id", id).then(logDbError("reordenar tarefa"));
     });
   }, [db]);
 

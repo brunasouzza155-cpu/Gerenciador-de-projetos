@@ -1,12 +1,47 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { fmtShort, todayISO } from "@/lib/dates";
 import { nodeState, type TaskNode } from "@/lib/tree";
 import type { AppStore } from "@/lib/store";
 import type { TaskTag } from "@/lib/types";
 import { AddInline, InkCheck, RowBtn } from "./ui";
 
+// ── Tag styles ────────────────────────────────────────────────────────────────
+const TAG_META: Record<
+  NonNullable<TaskTag>,
+  { label: string; bg: string; color: string }
+> = {
+  rapida:         { label: "RÁPIDA",    bg: "#EFE5D4", color: "#8C8578" },
+  acompanhamento: { label: "ACOMP.",    bg: "#E8EEF4", color: "#51677F" },
+  atividade:      { label: "ATIVIDADE", bg: "#E8F4EC", color: "#4D6B57" },
+  agenda:         { label: "AGENDA",    bg: "#F0E8F4", color: "#6B4D7F" },
+};
+
+// ── Public component ──────────────────────────────────────────────────────────
+
+/**
+ * Renders a list of task nodes.
+ * At depth=0 (root tasks): drag-and-drop reordering via @dnd-kit.
+ * At depth>0 (subtasks): rendered normally without DnD.
+ */
 export function TaskTree({
   nodes,
   store,
@@ -16,112 +51,120 @@ export function TaskTree({
   store: AppStore;
   depth?: number;
 }) {
-  const dragSrc = useRef<string | null>(null);
-  const [dragOver, setDragOver] = useState<string | null>(null);
-
-  if (nodes.length === 0) return null;
-
-  const parentId = nodes[0].task.parentId;
-  const projectId = nodes[0].task.projectId;
-
-  const handleDragStart = (id: string) => { dragSrc.current = id; };
-  const handleDragOver = (e: React.DragEvent, id: string) => {
-    e.preventDefault();
-    if (dragSrc.current !== id) setDragOver(id);
-  };
-  const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    setDragOver(null);
-    const srcId = dragSrc.current;
-    dragSrc.current = null;
-    if (!srcId || srcId === targetId) return;
-    const ids = nodes.map((n) => n.task.id);
-    const srcIdx = ids.indexOf(srcId);
-    const tgtIdx = ids.indexOf(targetId);
-    if (srcIdx === -1 || tgtIdx === -1) return;
-    const reordered = [...ids];
-    reordered.splice(srcIdx, 1);
-    reordered.splice(tgtIdx, 0, srcId);
-    store.reorderTasks(projectId, parentId, reordered);
-  };
-  const handleDragEnd = () => {
-    dragSrc.current = null;
-    setDragOver(null);
-  };
-
+  if (depth === 0 && nodes.length > 1) {
+    return <SortableTaskList nodes={nodes} store={store} />;
+  }
   return (
     <div>
       {nodes.map((node) => (
-        <div
-          key={node.task.id}
-          draggable
-          onDragStart={() => handleDragStart(node.task.id)}
-          onDragOver={(e) => handleDragOver(e, node.task.id)}
-          onDrop={(e) => handleDrop(e, node.task.id)}
-          onDragEnd={handleDragEnd}
-          style={{
-            opacity: dragSrc.current === node.task.id ? 0.4 : 1,
-            outline: dragOver === node.task.id ? "1px dashed var(--tan)" : undefined,
-          }}
-        >
-          <TaskRow node={node} store={store} depth={depth} />
-        </div>
+        <TaskRow key={node.task.id} node={node} store={store} depth={depth} dragHandle={null} />
       ))}
     </div>
   );
 }
 
-const TAG_META: Record<
-  NonNullable<TaskTag>,
-  { label: string; bg: string; color: string }
-> = {
-  rapida:          { label: "RÁPIDA",    bg: "#EFE5D4", color: "#8C8578" },
-  acompanhamento:  { label: "ACOMP.",    bg: "#E8EEF4", color: "#51677F" },
-  atividade:       { label: "ATIVIDADE", bg: "#E8F4EC", color: "#4D6B57" },
-  agenda:          { label: "AGENDA",    bg: "#F0E8F4", color: "#6B4D7F" },
-};
+// ── Sortable list (root level only) ──────────────────────────────────────────
+
+function SortableTaskList({ nodes, store }: { nodes: TaskNode[]; store: AppStore }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const ids = nodes.map((n) => n.task.id);
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIdx = ids.indexOf(active.id as string);
+    const newIdx = ids.indexOf(over.id as string);
+    if (oldIdx === -1 || newIdx === -1) return;
+    const reordered = arrayMove(ids, oldIdx, newIdx);
+    store.reorderTasks(nodes[0].task.projectId, nodes[0].task.parentId, reordered);
+  }
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        {nodes.map((node) => (
+          <SortableTaskRow key={node.task.id} node={node} store={store} />
+        ))}
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function SortableTaskRow({ node, store }: { node: TaskNode; store: AppStore }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: node.task.id });
+
+  const handle = (
+    <span
+      className="text-muted text-[13px] shrink-0 cursor-grab px-0.5 select-none touch-none"
+      title="Arrastar para reordenar prioridade"
+      {...attributes}
+      {...listeners}
+    >
+      ⠿
+    </span>
+  );
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.45 : 1,
+        zIndex: isDragging ? 10 : undefined,
+        position: "relative",
+      }}
+    >
+      <TaskRow node={node} store={store} depth={0} dragHandle={handle} />
+    </div>
+  );
+}
+
+// ── Task row ──────────────────────────────────────────────────────────────────
 
 function TaskRow({
   node,
   store,
   depth,
+  dragHandle,
 }: {
   node: TaskNode;
   store: AppStore;
   depth: number;
+  dragHandle: React.ReactNode;
 }) {
   const { task } = node;
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  // campos do formulário de edição
-  const [title, setTitle] = useState(task.title);
-  const [due, setDue] = useState(task.dueDate ?? "");
-  const [tag, setTag] = useState<TaskTag>(task.tag);
+  const [title, setTitle]   = useState(task.title);
+  const [due, setDue]       = useState(task.dueDate ?? "");
+  const [tag, setTag]       = useState<TaskTag>(task.tag);
   const [tagDue, setTagDue] = useState(task.tagDueDate ?? "");
 
-  const state = nodeState(node);
-  const today = todayISO();
+  const state   = nodeState(node);
+  const today   = todayISO();
   const overdue = !task.done && task.dueDate !== null && task.dueDate < today;
   const tagMeta = task.tag ? TAG_META[task.tag] : null;
 
   return (
     <div>
       <div
-        className="group-row flex items-center gap-1.5 py-[3px] hairline-b"
+        className="group flex items-center gap-1.5 py-[3px] hairline-b"
         style={{ paddingLeft: depth * 14 }}
       >
         {depth > 0 && (
           <span className="text-hairline text-[10px] shrink-0">└</span>
         )}
-        {/* Drag handle — only visible on hover */}
-        <span
-          className="text-hairline text-[10px] shrink-0 cursor-grab select-none opacity-0 group-row-hover:opacity-100"
-          title="Arrastar para reordenar"
-          style={{ touchAction: "none" }}
-        >
-          ⠿
-        </span>
+
+        {/* Drag handle — only at depth 0 */}
+        {dragHandle}
+
         <InkCheck
           state={state}
           onToggle={() => store.toggleTask(task.id, state !== "done")}
@@ -157,7 +200,6 @@ function TaskRow({
               value={due}
               onChange={(e) => setDue(e.target.value)}
             />
-            {/* Seletor de tag — salva imediatamente ao mudar */}
             <select
               className="ink-input w-[140px]"
               value={tag ?? ""}
@@ -178,13 +220,11 @@ function TaskRow({
               <option value="atividade">📋 atividade</option>
               <option value="agenda">🗓 agenda</option>
             </select>
-            {/* Data de cobrança só aparece se for acompanhamento */}
             {tag === "acompanhamento" && (
               <input
                 type="date"
                 className="ink-input w-[120px]"
                 title="Cobrar em…"
-                placeholder="cobrar em…"
                 value={tagDue}
                 onChange={(e) => {
                   setTagDue(e.target.value);
@@ -220,8 +260,8 @@ function TaskRow({
                 state === "done"
                   ? "line-through text-muted"
                   : overdue
-                    ? "text-alert font-medium"
-                    : ""
+                  ? "text-alert font-medium"
+                  : ""
               }`}
             >
               {task.title}
@@ -232,7 +272,6 @@ function TaskRow({
               )}
             </span>
 
-            {/* Badge de tag */}
             {tagMeta && (
               <span
                 className="text-[8px] uppercase tracking-wider px-1 py-0.5 shrink-0 font-medium"
@@ -243,11 +282,7 @@ function TaskRow({
             )}
 
             {task.dueDate && (
-              <span
-                className={`text-[10px] tabular-nums shrink-0 ${
-                  overdue ? "text-alert" : "text-muted"
-                }`}
-              >
+              <span className={`text-[10px] tabular-nums shrink-0 ${overdue ? "text-alert" : "text-muted"}`}>
                 {fmtShort(task.dueDate)}
               </span>
             )}
@@ -258,26 +293,14 @@ function TaskRow({
             )}
 
             <span className="row-actions flex gap-1 shrink-0">
-              <RowBtn
-                label="+"
-                title="Adicionar subtarefa"
-                onClick={() => setAdding((v) => !v)}
-              />
-              <RowBtn
-                label="✎"
-                title="Editar título, data e classificação"
-                onClick={() => setEditing(true)}
-              />
+              <RowBtn label="+" title="Adicionar subtarefa" onClick={() => setAdding((v) => !v)} />
+              <RowBtn label="✎" title="Editar título, data e classificação" onClick={() => setEditing(true)} />
               <RowBtn
                 label="×"
                 title="Excluir tarefa (e subtarefas)"
                 danger
                 onClick={() => {
-                  if (
-                    confirm(
-                      `Excluir a tarefa "${task.title}" e todas as subtarefas?`
-                    )
-                  ) {
+                  if (confirm(`Excluir a tarefa "${task.title}" e todas as subtarefas?`)) {
                     store.deleteTask(task.id);
                   }
                 }}
@@ -288,10 +311,7 @@ function TaskRow({
       </div>
 
       {adding && (
-        <div
-          className="flex items-center gap-2 py-1"
-          style={{ paddingLeft: (depth + 1) * 14 }}
-        >
+        <div className="flex items-center gap-2 py-1" style={{ paddingLeft: (depth + 1) * 14 }}>
           <AddInline
             placeholder="nova subtarefa… (Enter para salvar)"
             onAdd={(v) => {
@@ -299,9 +319,7 @@ function TaskRow({
               setAdding(false);
             }}
           />
-          <button className="ink-btn" onClick={() => setAdding(false)}>
-            cancelar
-          </button>
+          <button className="ink-btn" onClick={() => setAdding(false)}>cancelar</button>
         </div>
       )}
 
