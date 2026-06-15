@@ -81,7 +81,7 @@ export interface AppStore {
   updateProject: (id: string, patch: Partial<Project>) => void;
   deleteProject: (id: string) => void;
 
-  addTask: (projectId: string, parentId: string | null, title: string, dueDate?: string | null) => void;
+  addTask: (projectId: string, parentId: string | null, title: string, dueDate?: string | null, tag?: Task["tag"]) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   toggleTask: (id: string, done: boolean) => void;
   deleteTask: (id: string) => void;
@@ -259,11 +259,11 @@ export function useAppStore(mode: StoreMode): AppStore {
     db?.from("projects").delete().eq("id", id).then(logDbError("excluir projeto"));
   }, [db]);
 
-  const addTask: AppStore["addTask"] = useCallback((projectId, parentId, title, dueDate = null) => {
+  const addTask: AppStore["addTask"] = useCallback((projectId, parentId, title, dueDate = null, tag = null) => {
     const t = nowISO();
     const task: Task = {
       id: uid(), projectId, parentId, title,
-      done: false, dueDate, tag: null, tagDueDate: null,
+      done: false, dueDate, tag, tagDueDate: null,
       sortOrder: tasksRef.current.length, createdAt: t, updatedAt: t,
     };
     setTasks((ts) => { const n = [...ts, task]; saveLocal(LK.tasks, n); return n; });
