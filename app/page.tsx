@@ -86,7 +86,10 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
   const nextDay = () => setViewDate((d) => addDays(d, 1));
 
   const wsProjects = useMemo(
-    () => store.projects.filter((p) => p.workspace === workspace && p.kind !== "objetivo"),
+    () =>
+      store.projects
+        .filter((p) => p.workspace === workspace && p.kind !== "objetivo")
+        .sort((a, b) => (a.priorityOrder ?? 0) - (b.priorityOrder ?? 0)),
     [store.projects, workspace]
   );
 

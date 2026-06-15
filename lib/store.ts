@@ -353,11 +353,26 @@ export function useAppStore(mode: StoreMode): AppStore {
   const reorderProjects: AppStore["reorderProjects"] = useCallback((orderedIds) => {
     const now = nowISO();
     setProjects((ps) => {
-      const n = ps.map((p) => {
-        const idx = orderedIds.indexOf(p.id);
-        if (idx === -1) return p;
+      const idxMap = new Map(orderedIds.map((id, i) => [id, i]));
+      // Update priorityOrder on all affected projects
+      const updated = ps.map((p) => {
+        const idx = idxMap.get(p.id);
+        if (idx === undefined) return p;
         return { ...p, priorityOrder: idx, updatedAt: now };
       });
+      // Physically reorder the array: affected projects in new order,
+      // unaffected projects stay at their relative positions between them.
+      const affected = orderedIds
+        .map((id) => updated.find((p) => p.id === id))
+        .filter((p): p is NonNullable<typeof p> => p != null);
+      const unaffected = updated.filter((p) => !idxMap.has(p.id));
+      // Find where the affected block sits in the original array (first affected index)
+      const firstIdx = ps.findIndex((p) => idxMap.has(p.id));
+      const n = [
+        ...unaffected.slice(0, firstIdx === -1 ? unaffected.length : firstIdx),
+        ...affected,
+        ...unaffected.slice(firstIdx === -1 ? unaffected.length : firstIdx),
+      ];
       saveLocal(LK.projects, n);
       return n;
     });
