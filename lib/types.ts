@@ -36,6 +36,7 @@ export interface Project {
   notes: string;
   archived: boolean;
   kind?: "projeto" | "objetivo";
+  priorityOrder?: number;
   createdAt: string;
   updatedAt: string;
 }

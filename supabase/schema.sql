@@ -137,3 +137,10 @@ create policy "own monthly_goals" on monthly_goals
 -- alter table projects
 --   add column if not exists kind text not null default 'projeto'
 --     check (kind in ('projeto', 'objetivo'));
+
+-- =============================================================
+-- Migration: adicionar coluna priority_order à tabela projects
+-- Rode no SQL Editor do Supabase:
+-- =============================================================
+-- alter table projects
+--   add column if not exists priority_order integer not null default 0;

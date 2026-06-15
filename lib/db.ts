@@ -30,6 +30,7 @@ interface ProjectRow {
   notes: string;
   archived: boolean;
   kind?: "projeto" | "objetivo";
+  priority_order?: number;
   created_at: string;
   updated_at: string;
 }
@@ -100,6 +101,7 @@ const projectFromRow = (r: ProjectRow): Project => ({
   notes: r.notes,
   archived: r.archived,
   kind: r.kind ?? "projeto",
+  priorityOrder: r.priority_order ?? 0,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -166,6 +168,7 @@ export function projectToRow(p: Partial<Project>): Record<string, unknown> {
   if (p.notes !== undefined) row.notes = p.notes;
   if (p.archived !== undefined) row.archived = p.archived;
   if (p.kind !== undefined) row.kind = p.kind;
+  if (p.priorityOrder !== undefined) row.priority_order = p.priorityOrder;
   return row;
 }
 
@@ -222,7 +225,7 @@ export async function fetchAll(): Promise<AllData> {
   if (!supabase) throw new Error("Supabase não configurado");
   const [projects, tasks, quickWins, priorities, followups, goals] =
     await Promise.all([
-      supabase.from("projects").select("*").order("created_at"),
+      supabase.from("projects").select("*").order("priority_order").order("created_at"),
       supabase.from("tasks").select("*").order("sort_order"),
       supabase.from("quick_wins").select("*"),
       supabase.from("priorities").select("*"),

@@ -101,6 +101,7 @@ export interface AppStore {
   saveGoal: (data: Omit<MonthlyGoal, "id">) => void;
 
   reorderTasks: (projectId: string, parentId: string | null, orderedIds: string[]) => void;
+  reorderProjects: (orderedIds: string[]) => void;
 }
 
 export function useAppStore(mode: StoreMode): AppStore {
@@ -132,6 +133,10 @@ export function useAppStore(mode: StoreMode): AppStore {
 
   // Espelhos do estado atual, para as ações que precisam calcular algo
   // (ex.: marcar todas as subtarefas) sem depender de estado desatualizado.
+  const projectsRef = useRef(projects);
+  useEffect(() => {
+    projectsRef.current = projects;
+  }, [projects]);
   const tasksRef = useRef(tasks);
   useEffect(() => {
     tasksRef.current = tasks;
@@ -227,7 +232,8 @@ export function useAppStore(mode: StoreMode): AppStore {
 
   const addProject: AppStore["addProject"] = useCallback((data) => {
     const t = nowISO();
-    const project: Project = { ...data, id: uid(), createdAt: t, updatedAt: t };
+    const priorityOrder = projectsRef.current.length;
+    const project: Project = { ...data, id: uid(), priorityOrder, createdAt: t, updatedAt: t };
     setProjects((p) => { const n = [...p, project]; saveLocal(LK.projects, n); return n; });
     db?.from("projects").insert(projectToRow(project)).then(logDbError("criar projeto"));
   }, [db]);
@@ -344,6 +350,22 @@ export function useAppStore(mode: StoreMode): AppStore {
     db?.from("followups").delete().eq("id", id).then(logDbError("excluir acompanhamento"));
   }, [db]);
 
+  const reorderProjects: AppStore["reorderProjects"] = useCallback((orderedIds) => {
+    const now = nowISO();
+    setProjects((ps) => {
+      const n = ps.map((p) => {
+        const idx = orderedIds.indexOf(p.id);
+        if (idx === -1) return p;
+        return { ...p, priorityOrder: idx, updatedAt: now };
+      });
+      saveLocal(LK.projects, n);
+      return n;
+    });
+    orderedIds.forEach((id, idx) => {
+      db?.from("projects").update({ priority_order: idx }).eq("id", id).then(logDbError("reordenar projeto"));
+    });
+  }, [db]);
+
   const reorderTasks: AppStore["reorderTasks"] = useCallback((projectId, parentId, orderedIds) => {
     const now = nowISO();
     setTasks((ts) => {
@@ -391,6 +413,6 @@ export function useAppStore(mode: StoreMode): AppStore {
     addQuickWin, toggleQuickWin, deleteQuickWin,
     addPriority, togglePriority, deletePriority,
     addFollowup, updateFollowup, deleteFollowup,
-    saveGoal, reorderTasks,
+    saveGoal, reorderTasks, reorderProjects,
   };
 }

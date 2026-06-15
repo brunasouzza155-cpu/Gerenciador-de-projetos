@@ -8,6 +8,7 @@ import { useAppStore } from "@/lib/store";
 import type { ProjectStatus } from "@/lib/types";
 import { DayDemandsPanel, PrioritiesPanel, TodayPanel } from "@/components/DayColumn";
 import { ProjectCard, ProjectForm } from "@/components/ProjectCard";
+import { SortableProjectList } from "@/components/SortableProjectList";
 import { ObjetivosBlock } from "@/components/ObjetivoCard";
 import { Planner } from "@/components/Planner";
 import { FollowupsPanel } from "@/components/FollowupsPanel";
@@ -438,9 +439,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
                           </p>
                         </div>
                       )}
-                      {visibleProjects.map((p) => (
-                        <ProjectCard key={p.id} project={p} store={store} />
-                      ))}
+                      <SortableProjectList projects={visibleProjects} store={store} />
                     </div>
                   );
                 }
