@@ -140,18 +140,75 @@ export function useAppStore(mode: StoreMode): AppStore {
   }, [goals]);
 
   // Carga inicial vinda do banco (modo supabase).
+  // Reconcilia com o localStorage: não sobrescreve dados locais mais novos,
+  // e retenta gravações que falharam silenciosamente.
   useEffect(() => {
     if (!db) return;
     let cancelled = false;
     fetchAll()
       .then((data) => {
         if (cancelled) return;
-        setProjects(data.projects);
-        setTasks(data.tasks);
+
+        // ── Reconciliação de projetos ─────────────────────────────────────
+        const localProjects = loadLocal<Project[]>(LK.projects, []);
+        if (localProjects.length > 0) {
+          const dbProjMap = new Map(data.projects.map((p) => [p.id, p]));
+          const missingProj = localProjects.filter((p) => !dbProjMap.has(p.id));
+          const staleProj = localProjects.filter((p) => {
+            const dbP = dbProjMap.get(p.id);
+            return dbP && new Date(p.updatedAt).getTime() - new Date(dbP.updatedAt).getTime() > 2000;
+          });
+          const staleProjMap = new Map(staleProj.map((p) => [p.id, p]));
+          const mergedProjects = [
+            ...data.projects.map((p) => staleProjMap.get(p.id) ?? p),
+            ...missingProj,
+          ];
+          setProjects(mergedProjects);
+          saveLocal(LK.projects, mergedProjects);
+          for (const p of missingProj)
+            db.from("projects").insert(projectToRow(p)).then(logDbError("retry insert projeto"));
+          for (const p of staleProj)
+            db.from("projects").update(projectToRow(p)).eq("id", p.id).then(logDbError("retry update projeto"));
+        } else {
+          setProjects(data.projects);
+          saveLocal(LK.projects, data.projects);
+        }
+
+        // ── Reconciliação de tarefas ──────────────────────────────────────
+        const localTasks = loadLocal<Task[]>(LK.tasks, []);
+        if (localTasks.length > 0) {
+          const dbTaskMap = new Map(data.tasks.map((t) => [t.id, t]));
+          const missingTasks = localTasks.filter((t) => !dbTaskMap.has(t.id));
+          const staleTasks = localTasks.filter((t) => {
+            const dbT = dbTaskMap.get(t.id);
+            return dbT && new Date(t.updatedAt).getTime() - new Date(dbT.updatedAt).getTime() > 2000;
+          });
+          const staleTaskMap = new Map(staleTasks.map((t) => [t.id, t]));
+          const mergedTasks = [
+            ...data.tasks.map((t) => staleTaskMap.get(t.id) ?? t),
+            ...missingTasks,
+          ];
+          setTasks(mergedTasks);
+          saveLocal(LK.tasks, mergedTasks);
+          for (const t of missingTasks)
+            db.from("tasks").insert(taskToRow(t)).then(logDbError("retry insert tarefa"));
+          for (const t of staleTasks)
+            db.from("tasks").update(taskToRow(t)).eq("id", t.id).then(logDbError("retry update tarefa"));
+        } else {
+          setTasks(data.tasks);
+          saveLocal(LK.tasks, data.tasks);
+        }
+
+        // ── Restante: sem campo updatedAt, confia no banco ────────────────
         setQuickWins(data.quickWins);
+        saveLocal(LK.quickWins, data.quickWins);
         setPriorities(data.priorities);
+        saveLocal(LK.priorities, data.priorities);
         setFollowups(data.followups);
+        saveLocal(LK.followups, data.followups);
         setGoals(data.goals);
+        saveLocal(LK.goals, data.goals);
+
         setLoading(false);
       })
       .catch((e: { message?: string }) => {
