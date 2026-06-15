@@ -2,17 +2,27 @@
 
 import { useState } from "react";
 import { fmtShort, todayISO } from "@/lib/dates";
-import { buildTree, nodeState } from "@/lib/tree";
+import { descendantIds, type TaskNode } from "@/lib/tree";
 import type { AppStore } from "@/lib/store";
 import type { Project, Task, Workspace } from "@/lib/types";
 import { STATUS_META } from "@/lib/theme";
 import { AddInline, InkCheck, RowBtn, SectionBar } from "./ui";
+import { TaskTree } from "./TaskTree";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ActivityItem {
   task: Task;
   project: Project;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function buildSubtree(allTasks: Task[], parentId: string): TaskNode[] {
+  return allTasks
+    .filter((t) => t.parentId === parentId)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((task) => ({ task, children: buildSubtree(allTasks, task.id) }));
 }
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
@@ -67,7 +77,6 @@ export function ActivitiesPanel({
           <ActivityRow key={task.id} task={task} project={project} store={store} />
         ))}
 
-        {/* Add form */}
         {adding ? (
           <AddActivityForm
             projects={projects}
@@ -168,7 +177,7 @@ function AddActivityForm({
   );
 }
 
-// ── Activity row (with subtasks) ──────────────────────────────────────────────
+// ── Activity row (with unlimited subtask cascade) ─────────────────────────────
 
 function ActivityRow({
   task,
@@ -183,10 +192,15 @@ function ActivityRow({
   const overdue = task.dueDate && task.dueDate < today;
   const statusMeta = STATUS_META[project.status];
 
-  // Direct children of this activity task
-  const subtasks = store.tasks
-    .filter((t) => t.parentId === task.id)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+  // Build full recursive subtree for this activity
+  const subtaskNodes = buildSubtree(store.tasks, task.id);
+  const directChildren = store.tasks.filter((t) => t.parentId === task.id);
+
+  // Progress counts all descendants (leaves = tasks with no children)
+  const allDescIds = descendantIds(store.tasks, task.id);
+  const allDescs = store.tasks.filter((t) => allDescIds.includes(t.id));
+  const doneCount = allDescs.filter((t) => t.done).length;
+  const progress = allDescs.length > 0 ? Math.round((doneCount / allDescs.length) * 100) : null;
 
   const [expanded, setExpanded] = useState(true);
   const [addingSub, setAddingSub] = useState(false);
@@ -194,11 +208,8 @@ function ActivityRow({
   const [editTitle, setEditTitle] = useState(task.title);
   const [editDate, setEditDate] = useState(task.dueDate ?? "");
 
-  const done = store.tasks
-    .filter((t) => t.parentId === task.id)
-    .filter((t) => t.done).length;
-  const total = subtasks.length;
-  const progress = total > 0 ? Math.round((done / total) * 100) : null;
+  const directDone = directChildren.filter((t) => t.done).length;
+  const directTotal = directChildren.length;
 
   return (
     <div className="py-1.5 hairline-b">
@@ -236,7 +247,13 @@ function ActivityRow({
                 onChange={(e) => setEditDate(e.target.value)}
               />
               <button className="ink-btn text-[10px]" type="submit">ok</button>
-              <button className="ink-btn text-[10px]" type="button" onClick={() => { setEditTitle(task.title); setEditDate(task.dueDate ?? ""); setEditing(false); }}>×</button>
+              <button
+                className="ink-btn text-[10px]"
+                type="button"
+                onClick={() => { setEditTitle(task.title); setEditDate(task.dueDate ?? ""); setEditing(false); }}
+              >
+                ×
+              </button>
             </form>
           ) : (
             <>
@@ -247,13 +264,13 @@ function ActivityRow({
                     {overdue ? "⚠ " : ""}{fmtShort(task.dueDate)}
                   </span>
                 )}
-                {subtasks.length > 0 && (
+                {directTotal > 0 && (
                   <button
                     className="text-[9px] text-muted hover:text-ink"
                     onClick={() => setExpanded((v) => !v)}
                     title={expanded ? "Recolher" : "Expandir"}
                   >
-                    {expanded ? "▾" : "▸"} {done}/{total}
+                    {expanded ? "▾" : "▸"} {directDone}/{directTotal}
                   </button>
                 )}
               </div>
@@ -279,16 +296,14 @@ function ActivityRow({
         )}
       </div>
 
-      {/* Subtasks */}
-      {expanded && subtasks.length > 0 && (
-        <div className="ml-7 mt-1 space-y-0.5">
-          {subtasks.map((sub) => (
-            <SubtaskRow key={sub.id} task={sub} store={store} />
-          ))}
+      {/* Recursive subtask cascade — unlimited depth via TaskTree */}
+      {expanded && subtaskNodes.length > 0 && (
+        <div className="ml-5 mt-1">
+          <TaskTree nodes={subtaskNodes} store={store} depth={1} />
         </div>
       )}
 
-      {/* Add subtask inline */}
+      {/* Add direct subtask inline */}
       {addingSub && (
         <div className="ml-7 mt-1 flex items-center gap-2">
           <AddInline
@@ -301,48 +316,6 @@ function ActivityRow({
           <button className="ink-btn text-[10px]" onClick={() => setAddingSub(false)}>cancelar</button>
         </div>
       )}
-    </div>
-  );
-}
-
-// ── Subtask row ───────────────────────────────────────────────────────────────
-
-function SubtaskRow({ task, store }: { task: Task; store: AppStore }) {
-  const today = todayISO();
-  const overdue = task.dueDate && !task.done && task.dueDate < today;
-  // Build a minimal node for nodeState
-  const node = { task, children: [] };
-  const state = nodeState(node);
-
-  return (
-    <div className="flex items-center gap-1.5 group py-0.5 hairline-b last:border-b-0">
-      <span className="text-hairline text-[10px] shrink-0">└</span>
-      <InkCheck
-        state={state}
-        onToggle={() => store.toggleTask(task.id, state !== "done")}
-      />
-      <span
-        className={`flex-1 text-[11px] leading-tight ${
-          state === "done" ? "line-through text-muted" : overdue ? "text-alert" : ""
-        }`}
-      >
-        {task.title}
-      </span>
-      {task.dueDate && !task.done && (
-        <span className={`text-[9px] tabular-nums shrink-0 ${overdue ? "text-alert" : "text-muted"}`}>
-          {fmtShort(task.dueDate)}
-        </span>
-      )}
-      <span className="row-actions flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        <RowBtn
-          label="×"
-          title="Excluir subtarefa"
-          danger
-          onClick={() => {
-            if (confirm(`Excluir "${task.title}"?`)) store.deleteTask(task.id);
-          }}
-        />
-      </span>
     </div>
   );
 }

@@ -290,3 +290,20 @@ export function loadDefaultPlannerMeta(): { name: string; emoji: string } {
 export function saveDefaultPlannerMeta(name: string, emoji: string) {
   try { localStorage.setItem(DEFAULT_META_KEY, JSON.stringify({ name, emoji })); } catch {}
 }
+
+export const DEFAULT_COL_WIDTHS: [number, number, number] = [1, 1.6, 1];
+
+export function loadColWidths(plannerId: string | null): [number, number, number] {
+  if (typeof window === "undefined") return DEFAULT_COL_WIDTHS;
+  const key = plannerId ? `planner_colwidths_${plannerId}` : "planner_colwidths_default";
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) return JSON.parse(raw) as [number, number, number];
+  } catch {}
+  return DEFAULT_COL_WIDTHS;
+}
+
+export function saveColWidths(plannerId: string | null, widths: [number, number, number]) {
+  const key = plannerId ? `planner_colwidths_${plannerId}` : "planner_colwidths_default";
+  try { localStorage.setItem(key, JSON.stringify(widths)); } catch {}
+}

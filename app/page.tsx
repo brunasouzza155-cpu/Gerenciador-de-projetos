@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useSyncExternalStore, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useSyncExternalStore, useEffect } from "react";
 import { addDays, fmtLong, fmtShort, todayISO } from "@/lib/dates";
 import { projectLeaves } from "@/lib/tree";
 import { STATUS_META, STATUS_ORDER } from "@/lib/theme";
@@ -27,7 +27,7 @@ import {
 import {
   loadPlannerConfig, loadPlannerBlocks, savePlannerConfig, savePlannerBlocks,
   getActivePlannerId, DEFAULT_BLOCKS, loadPlanners, loadDefaultPlannerMeta,
-  getPlannerWorkspace,
+  getPlannerWorkspace, loadColWidths, saveColWidths, DEFAULT_COL_WIDTHS,
   type PlannerBlock,
 } from "@/lib/planner-config";
 import type { Workspace } from "@/lib/types";
@@ -60,6 +60,10 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
   const [plannerName, setPlannerName] = useState("Planner");
   const [showTutorial, setShowTutorial] = useState(false);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [colWidths, setColWidths] = useState<[number, number, number]>(DEFAULT_COL_WIDTHS);
+  const [isDesktop, setIsDesktop] = useState(false);
+
   const mounted = useSyncExternalStore(subscribeNoop, () => true, () => false);
 
   // Load planner config + name + workspace on mount
@@ -80,6 +84,12 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
     if (!localStorage.getItem("welcome_seen")) {
       setShowTutorial(true);
     }
+    setColWidths(loadColWidths(aid));
+    const mq = window.matchMedia('(min-width: 1024px)');
+    setIsDesktop(mq.matches);
+    const mqHandler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener('change', mqHandler);
+    return () => mq.removeEventListener('change', mqHandler);
   }, []);
 
   const today = todayISO();
@@ -150,6 +160,7 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
 
   const handleSwitchPlanner = useCallback((id: string | null) => {
     setActivePlannerIdState(id);
+    setColWidths(loadColWidths(id));
     // Switch workspace context so data shown matches this planner's scope
     setWorkspace(getPlannerWorkspace(id));
     // Reset filters that are workspace-specific
@@ -178,6 +189,20 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
     } else {
       savePlannerConfig(blocks);
     }
+  }, [activePlannerId]);
+
+  const handleColResize = useCallback((idx: 0 | 1, delta: number, containerWidth: number) => {
+    setColWidths((prev) => {
+      const total = prev[0] + prev[1] + prev[2];
+      const frPerPx = total / Math.max(containerWidth, 1);
+      const frDelta = delta * frPerPx;
+      const minFr = total * 0.1;
+      const next = [...prev] as [number, number, number];
+      next[idx] = Math.max(minFr, next[idx] + frDelta);
+      next[idx + 1] = Math.max(minFr, next[idx + 1] - frDelta);
+      saveColWidths(activePlannerId, next);
+      return next;
+    });
   }, [activePlannerId]);
 
   // Render block content by type
@@ -335,10 +360,16 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
           </header>
 
           {/* Colunas dinâmicas */}
-          <div className="mt-8 grid grid-cols-1 lg:grid-cols-[1fr_1.6fr_1fr] gap-5 items-start">
+          <div
+            ref={containerRef}
+            className="mt-8 flex flex-col lg:flex-row items-start gap-4 lg:gap-0"
+          >
 
             {/* Coluna 1 */}
-            <div className="flex flex-col gap-4">
+            <div
+              className="w-full min-w-0 flex flex-col gap-4"
+              style={isDesktop ? { flex: colWidths[0], minWidth: 0 } : undefined}
+            >
               {hasDayBlocks && (
                 <div className="bg-paper border border-hairline px-4 py-3 flex items-center justify-between rounded-2xl shadow-sm">
                   <button className="ink-btn py-1.5 px-3" onClick={prevDay}>←</button>
@@ -369,8 +400,13 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
               })}
             </div>
 
+            <ColResizeHandle idx={0} containerRef={containerRef} onDelta={handleColResize} isDesktop={isDesktop} />
+
             {/* Coluna 2 */}
-            <div className="flex flex-col gap-4">
+            <div
+              className="w-full min-w-0 flex flex-col gap-4"
+              style={isDesktop ? { flex: colWidths[1], minWidth: 0 } : undefined}
+            >
               {col2Blocks.map((block) => {
                 const colorStyle = block.accentColor ? { "--section-color": block.accentColor } as React.CSSProperties : undefined;
                 if (block.type === "projects") {
@@ -459,8 +495,13 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
               })}
             </div>
 
+            <ColResizeHandle idx={1} containerRef={containerRef} onDelta={handleColResize} isDesktop={isDesktop} />
+
             {/* Coluna 3 */}
-            <div className="flex flex-col gap-4">
+            <div
+              className="w-full min-w-0 flex flex-col gap-4"
+              style={isDesktop ? { flex: colWidths[2], minWidth: 0 } : undefined}
+            >
               {col3Blocks.map((block) => {
                 const content = renderBlockContent(block);
                 if (!content) return null;
@@ -484,5 +525,54 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
         </div>
       </main>
     </>
+  );
+}
+
+function ColResizeHandle({
+  idx,
+  containerRef,
+  onDelta,
+  isDesktop,
+}: {
+  idx: 0 | 1;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  onDelta: (idx: 0 | 1, delta: number, containerWidth: number) => void;
+  isDesktop: boolean;
+}) {
+  const [dragging, setDragging] = useState(false);
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
+    let lastX = e.clientX;
+    setDragging(true);
+    const onMove = (e: PointerEvent) => {
+      const cw = containerRef.current?.clientWidth ?? 1000;
+      const delta = e.clientX - lastX;
+      lastX = e.clientX;
+      if (delta !== 0) onDelta(idx, delta, cw);
+    };
+    const onUp = () => {
+      setDragging(false);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
+  if (!isDesktop) return null;
+
+  return (
+    <div
+      className="flex-none w-4 self-stretch flex items-center justify-center cursor-col-resize select-none group"
+      title="Arrastar para redimensionar coluna"
+      onPointerDown={onPointerDown}
+    >
+      <div
+        className={`w-[2px] h-full min-h-[120px] rounded-full transition-colors ${
+          dragging ? "bg-ink/40" : "bg-transparent group-hover:bg-ink/20"
+        }`}
+      />
+    </div>
   );
 }

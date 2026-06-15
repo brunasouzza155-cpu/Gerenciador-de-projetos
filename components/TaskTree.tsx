@@ -141,6 +141,7 @@ function TaskRow({
   const { task } = node;
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [expanded, setExpanded] = useState(true);
 
   const [title, setTitle]   = useState(task.title);
   const [due, setDue]       = useState(task.dueDate ?? "");
@@ -292,6 +293,17 @@ function TaskRow({
               </span>
             )}
 
+            {node.children.length > 0 && (
+              <button
+                className="text-[9px] text-muted hover:text-ink shrink-0 tabular-nums"
+                onClick={() => setExpanded((v) => !v)}
+                title={expanded ? "Recolher subtarefas" : "Expandir subtarefas"}
+              >
+                {expanded ? "▾" : "▸"}{" "}
+                {node.children.filter((c) => c.task.done).length}/{node.children.length}
+              </button>
+            )}
+
             <span className="row-actions flex gap-1 shrink-0">
               <RowBtn label="+" title="Adicionar subtarefa" onClick={() => setAdding((v) => !v)} />
               <RowBtn label="✎" title="Editar título, data e classificação" onClick={() => setEditing(true)} />
@@ -323,7 +335,7 @@ function TaskRow({
         </div>
       )}
 
-      {node.children.length > 0 && (
+      {expanded && node.children.length > 0 && (
         <TaskTree nodes={node.children} store={store} depth={depth + 1} />
       )}
     </div>
