@@ -29,10 +29,11 @@ const TAG_META: Record<
   NonNullable<TaskTag>,
   { label: string; bg: string; color: string }
 > = {
-  rapida:         { label: "RÁPIDA",    bg: "#EFE5D4", color: "#8C8578" },
-  acompanhamento: { label: "ACOMP.",    bg: "#E8EEF4", color: "#51677F" },
-  atividade:      { label: "ATIVIDADE", bg: "#E8F4EC", color: "#4D6B57" },
-  agenda:         { label: "AGENDA",    bg: "#F0E8F4", color: "#6B4D7F" },
+  rapida:         { label: "RÁPIDA",      bg: "#EFE5D4", color: "#8C8578" },
+  acompanhamento: { label: "ACOMP.",      bg: "#E8EEF4", color: "#51677F" },
+  atividade:      { label: "ATIVIDADE",   bg: "#E8F4EC", color: "#4D6B57" },
+  agenda:         { label: "AGENDA",      bg: "#F0E8F4", color: "#6B4D7F" },
+  prioridade:     { label: "PRIORIDADE",  bg: "#FFF0E8", color: "#8C5D3F" },
 };
 
 // ── Public component ──────────────────────────────────────────────────────────
@@ -216,6 +217,7 @@ function TaskRow({
               }}
             >
               <option value="">sem classificação</option>
+              <option value="prioridade">⭐ prioridade</option>
               <option value="rapida">⚡ tarefa rápida</option>
               <option value="acompanhamento">👁 acompanhamento</option>
               <option value="atividade">📋 atividade</option>
@@ -304,17 +306,19 @@ function TaskRow({
               </button>
             )}
 
-            <span className="row-actions flex gap-1 shrink-0">
-              <RowBtn label="+" title="Adicionar subtarefa" onClick={() => setAdding((v) => !v)} />
+            <span className="row-actions flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              <RowBtn label="+" title="Adicionar subtarefa" onClick={() => { setAdding((v) => !v); setExpanded(true); }} />
               <RowBtn label="✎" title="Editar título, data e classificação" onClick={() => setEditing(true)} />
               <RowBtn
-                label="×"
-                title="Excluir tarefa (e subtarefas)"
+                label="🗑"
+                title="Excluir tarefa (e todas as subtarefas)"
                 danger
                 onClick={() => {
-                  if (confirm(`Excluir a tarefa "${task.title}" e todas as subtarefas?`)) {
-                    store.deleteTask(task.id);
-                  }
+                  const childCount = node.children.length;
+                  const msg = childCount > 0
+                    ? `Excluir "${task.title}" e ${childCount} subtarefa(s) em cascata?`
+                    : `Excluir a tarefa "${task.title}"?`;
+                  if (confirm(msg)) store.deleteTask(task.id);
                 }}
               />
             </span>

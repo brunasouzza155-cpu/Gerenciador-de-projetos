@@ -6,6 +6,7 @@ import {
   loadPlanners, savePlanners, savePlannerConfig, loadPlannerConfig, loadPlannerBlocks,
   getActivePlannerId, setActivePlannerId, DEFAULT_BLOCKS,
   loadDefaultPlannerMeta, saveDefaultPlannerMeta,
+  isDefaultPlannerHidden, setDefaultPlannerHidden, createBlankPlanner,
   type PlannerBlock, type PlannerConfig,
 } from "@/lib/planner-config";
 import type { Workspace } from "@/lib/types";
@@ -40,6 +41,7 @@ export function Sidebar({
 }: SidebarProps) {
   const [planners, setPlanners] = useState<PlannerConfig[]>([]);
   const [defaultMeta, setDefaultMeta] = useState({ name: "Planner", emoji: "📓" });
+  const [defaultHidden, setDefaultHidden] = useState(false);
   // undefined = editor closed; null = editing default; string = editing specific planner
   const [editingId, setEditingId] = useState<string | null | undefined>(undefined);
 
@@ -47,6 +49,7 @@ export function Sidebar({
   useEffect(() => {
     setPlanners(loadPlanners());
     setDefaultMeta(loadDefaultPlannerMeta());
+    setDefaultHidden(isDefaultPlannerHidden());
   }, [open]); // re-load when sidebar opens to pick up new planners
 
   // Apply saved theme/font on mount
@@ -71,15 +74,21 @@ export function Sidebar({
 
   const handleDeleteDefaultPlanner = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Redefinir o planner padrão? A configuração atual será apagada.")) return;
+    if (!confirm("Excluir este planner permanentemente?")) return;
     localStorage.removeItem("planner_layout");
     localStorage.removeItem("planner_default_meta");
-    setDefaultMeta({ name: "Planner", emoji: "📓" });
-    if (activePlannerId === null) {
-      onBlocksChange(DEFAULT_BLOCKS);
-      onNameChange?.("Planner");
+    setDefaultPlannerHidden(true);
+    setDefaultHidden(true);
+
+    if (planners.length > 0) {
+      handleSwitchPlanner(planners[0].id);
+    } else {
+      const newP = createBlankPlanner();
+      const updated = [newP];
+      savePlanners(updated);
+      setPlanners(updated);
+      handleSwitchPlanner(newP.id);
     }
-    onClose();
   };
 
   const handleSwitchPlanner = (id: string | null) => {
@@ -187,15 +196,17 @@ export function Sidebar({
             </p>
 
             <div className="space-y-1.5">
-              {/* Default Planner */}
-              <PlannerRow
-                label={defaultMeta.name}
-                emoji={defaultMeta.emoji}
-                active={activePlannerId === null}
-                onClick={() => handleSwitchPlanner(null)}
-                onEdit={() => setEditingId(null)}
-                onDelete={handleDeleteDefaultPlanner}
-              />
+              {/* Default Planner — hidden once deleted */}
+              {!defaultHidden && (
+                <PlannerRow
+                  label={defaultMeta.name}
+                  emoji={defaultMeta.emoji}
+                  active={activePlannerId === null}
+                  onClick={() => handleSwitchPlanner(null)}
+                  onEdit={() => setEditingId(null)}
+                  onDelete={handleDeleteDefaultPlanner}
+                />
+              )}
 
               {/* User planners */}
               {planners.map((p) => (

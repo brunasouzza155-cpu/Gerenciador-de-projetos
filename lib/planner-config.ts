@@ -291,6 +291,38 @@ export function saveDefaultPlannerMeta(name: string, emoji: string) {
   try { localStorage.setItem(DEFAULT_META_KEY, JSON.stringify({ name, emoji })); } catch {}
 }
 
+// ── Default planner visibility flag ─────────────────────────────────────────
+const DEFAULT_HIDDEN_KEY = "planner_default_hidden";
+
+export function isDefaultPlannerHidden(): boolean {
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(DEFAULT_HIDDEN_KEY) === "1";
+}
+
+export function setDefaultPlannerHidden(hidden: boolean) {
+  try {
+    if (hidden) localStorage.setItem(DEFAULT_HIDDEN_KEY, "1");
+    else localStorage.removeItem(DEFAULT_HIDDEN_KEY);
+  } catch {}
+}
+
+/** Creates a new blank PlannerConfig (for when the last planner is deleted). */
+export function createBlankPlanner(): PlannerConfig {
+  return {
+    id: `planner_${Date.now()}`,
+    name: "Meu Planner",
+    emoji: "📓",
+    template: "blank",
+    workspace: "trabalho",
+    blocks: DEFAULT_BLOCKS.map((b) =>
+      ["priorities", "today", "objetivo"].includes(b.id)
+        ? { ...b, visible: true }
+        : { ...b, visible: false }
+    ),
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export const DEFAULT_COL_WIDTHS: [number, number, number] = [1, 1.6, 1];
 
 export function loadColWidths(plannerId: string | null): [number, number, number] {

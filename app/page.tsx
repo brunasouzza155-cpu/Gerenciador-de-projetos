@@ -26,8 +26,9 @@ import {
 } from "@/components/BlockWidgets";
 import {
   loadPlannerConfig, loadPlannerBlocks, savePlannerConfig, savePlannerBlocks,
-  getActivePlannerId, DEFAULT_BLOCKS, loadPlanners, loadDefaultPlannerMeta,
+  getActivePlannerId, setActivePlannerId, DEFAULT_BLOCKS, loadPlanners, loadDefaultPlannerMeta,
   getPlannerWorkspace, loadColWidths, saveColWidths, DEFAULT_COL_WIDTHS,
+  isDefaultPlannerHidden,
   type PlannerBlock,
 } from "@/lib/planner-config";
 import type { Workspace } from "@/lib/types";
@@ -68,7 +69,17 @@ function Home({ mode }: { mode: "mock" | "supabase" }) {
 
   // Load planner config + name + workspace on mount
   useEffect(() => {
-    const aid = getActivePlannerId();
+    let aid = getActivePlannerId();
+
+    // If no active planner and the default was deleted, auto-switch to first named planner
+    if (!aid && isDefaultPlannerHidden()) {
+      const ps = loadPlanners();
+      if (ps.length > 0) {
+        aid = ps[0].id;
+        setActivePlannerId(aid);
+      }
+    }
+
     setActivePlannerIdState(aid);
     setWorkspace(getPlannerWorkspace(aid));
     if (aid) {

@@ -19,7 +19,8 @@ export type Health = 0 | 1 | 2;
 // "acompanhamento"  → aparece no painel "Acompanhamentos" com a data tagDueDate
 // "atividade"       → aparece no bloco "Atividades" da página principal
 // "agenda"          → compromisso de agenda / evento
-export type TaskTag = "rapida" | "acompanhamento" | "atividade" | "agenda" | null;
+// "prioridade"      → aparece automaticamente no bloco Prioridades e Urgências
+export type TaskTag = "rapida" | "acompanhamento" | "atividade" | "agenda" | "prioridade" | null;
 
 export interface Project {
   id: string;

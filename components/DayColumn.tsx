@@ -20,6 +20,11 @@ export function PrioritiesPanel({
   );
   const full = items.length >= 3;
 
+  // Tasks tagged "prioridade" for this workspace (pending, not done)
+  const priorityTasks = store.tasks.filter((t) => t.tag === "prioridade" && !t.done);
+
+  const totalCount = items.length + priorityTasks.length;
+
   return (
     <section className="bg-paper border border-hairline">
       <SectionBar
@@ -27,7 +32,7 @@ export function PrioritiesPanel({
         right={<span>{items.length}/3</span>}
       />
       <div className="px-3 py-2">
-        {items.length === 0 && (
+        {totalCount === 0 && (
           <p className="text-[11px] font-serif-note text-muted py-1">
             O que faria o dia valer a pena?
           </p>
@@ -61,6 +66,36 @@ export function PrioritiesPanel({
             </span>
           </div>
         ))}
+
+        {/* Tasks tagged as "prioridade" */}
+        {priorityTasks.length > 0 && (
+          <div className={items.length > 0 ? "mt-1 pt-1 border-t border-hairline" : ""}>
+            {items.length > 0 && (
+              <p className="text-[8px] uppercase tracking-wider text-muted mb-1">tarefas prioritárias</p>
+            )}
+            {priorityTasks.map((t) => (
+              <div key={t.id} className="group flex items-center gap-2 py-1 hairline-b">
+                <span
+                  className="text-[8px] font-semibold px-1 py-[1px] shrink-0"
+                  style={{ background: "#FFF0E8", color: "#8C5D3F" }}
+                >
+                  ⭐
+                </span>
+                <InkCheck
+                  state={t.done ? "done" : "open"}
+                  onToggle={() => store.toggleTask(t.id, !t.done)}
+                />
+                <span className={`flex-1 text-[11px] ${t.done ? "line-through text-muted" : ""}`}>
+                  {t.title}
+                </span>
+                {t.dueDate && (
+                  <span className="text-[9px] text-muted tabular-nums shrink-0">{fmtShort(t.dueDate)}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="pt-1.5">
           {full ? (
             <p className="text-[10px] text-muted font-serif-note">
