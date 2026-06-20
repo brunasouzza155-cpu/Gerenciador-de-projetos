@@ -9,8 +9,10 @@ import type { AppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuthGate } from "@/components/AuthGate";
 import { getActivePlannerId, loadPlannerBlocks, loadPlannerConfig, loadPlanners, loadDefaultPlannerMeta, isDefaultPlannerHidden } from "@/lib/planner-config";
+import type { PlannerConfig } from "@/lib/planner-config";
 import { AddInline, InkCheck } from "@/components/ui";
 import type { Task, TaskTag, Workspace } from "@/lib/types";
+import { ExportModal } from "@/components/ExportModal";
 
 const subscribeNoop = () => () => {};
 
@@ -687,16 +689,23 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
   const [wsFilter, setWsFilter]         = useState<Workspace | "all">("all");
   const [period, setPeriod]             = useState<"today" | "week" | "month" | "all">("month");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showExport, setShowExport]     = useState(false);
 
-  // Planner block awareness
-  const [blocksLoaded, setBlocksLoaded]       = useState(false);
-  const [visibleBlockTypes, setVisibleBlockTypes] = useState<Set<string>>(new Set());
+  // Planner block awareness + export context
+  const [blocksLoaded, setBlocksLoaded]                   = useState(false);
+  const [visibleBlockTypes, setVisibleBlockTypes]         = useState<Set<string>>(new Set());
+  const [activePlannerId, setActivePlannerId]             = useState<string | null>(null);
+  const [planners, setPlanners]                           = useState<PlannerConfig[]>([]);
+  const [defaultPlannerName, setDefaultPlannerName]       = useState("Planner");
 
   useEffect(() => {
     const activeId = getActivePlannerId();
     const blocks   = activeId ? loadPlannerBlocks(activeId) : loadPlannerConfig();
     setVisibleBlockTypes(new Set(blocks.filter((b) => b.visible).map((b) => b.type)));
     setBlocksLoaded(true);
+    setActivePlannerId(activeId);
+    setPlanners(loadPlanners());
+    setDefaultPlannerName(loadDefaultPlannerMeta().name);
   }, []);
 
   const has = (type: string) => visibleBlockTypes.has(type);
@@ -825,10 +834,10 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
 
         <button
           className="ink-btn"
-          onClick={() => window.print()}
-          title="Imprimir / Exportar PDF"
+          onClick={() => setShowExport(true)}
+          title="Exportar dados (PDF, Excel, JSON)"
         >
-          🖨 Exportar
+          ⬇ Exportar dados
         </button>
       </header>
 
@@ -1214,6 +1223,17 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
         </footer>
 
       </div>
+      )}
+
+      {/* Export modal */}
+      {showExport && (
+        <ExportModal
+          store={store}
+          activePlannerId={activePlannerId}
+          planners={planners}
+          defaultPlannerName={defaultPlannerName}
+          onClose={() => setShowExport(false)}
+        />
       )}
     </main>
   );
