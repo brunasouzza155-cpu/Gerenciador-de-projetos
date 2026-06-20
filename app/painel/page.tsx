@@ -8,9 +8,9 @@ import { useAppStore } from "@/lib/store";
 import type { AppStore } from "@/lib/store";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { AuthGate } from "@/components/AuthGate";
-import { getActivePlannerId, loadPlannerBlocks, loadPlannerConfig } from "@/lib/planner-config";
-import { InkCheck } from "@/components/ui";
-import type { TaskTag, Workspace } from "@/lib/types";
+import { getActivePlannerId, loadPlannerBlocks, loadPlannerConfig, loadPlanners, loadDefaultPlannerMeta, isDefaultPlannerHidden } from "@/lib/planner-config";
+import { AddInline, InkCheck } from "@/components/ui";
+import type { Task, TaskTag, Workspace } from "@/lib/types";
 
 const subscribeNoop = () => () => {};
 
@@ -128,22 +128,342 @@ function StatCard({
 }
 
 // ── Tag metadata for weekly view ──────────────────────────────────────────────
-const WEEK_TAG_META: Record<
-  NonNullable<TaskTag>,
-  { label: string; bg: string; color: string }
-> = {
-  rapida:         { label: "RÁPIDA",     bg: "#EFE5D4", color: "#8C8578" },
-  acompanhamento: { label: "ACOMP.",     bg: "#E8EEF4", color: "#51677F" },
-  atividade:      { label: "ATIVIDADE",  bg: "#E8F4EC", color: "#4D6B57" },
-  agenda:         { label: "AGENDA",     bg: "#F0E8F4", color: "#6B4D7F" },
-  prioridade:     { label: "PRIOR.",     bg: "#FFF0E8", color: "#8C5D3F" },
+const WEEK_TAG_META: Record<NonNullable<TaskTag>, { label: string; bg: string; color: string }> = {
+  rapida:         { label: "RÁPIDA",    bg: "#EFE5D4", color: "#8C8578" },
+  acompanhamento: { label: "ACOMP.",    bg: "#E8EEF4", color: "#51677F" },
+  atividade:      { label: "ATIVIDADE", bg: "#E8F4EC", color: "#4D6B57" },
+  agenda:         { label: "AGENDA",    bg: "#F0E8F4", color: "#6B4D7F" },
+  prioridade:     { label: "PRIOR.",    bg: "#FFF0E8", color: "#8C5D3F" },
 };
 
-// ── Visão Semanal ─────────────────────────────────────────────────────────────
+// ── Task detail modal ─────────────────────────────────────────────────────────
+function TaskDetailModal({
+  task,
+  store,
+  onClose,
+}: {
+  task: Task;
+  store: AppStore;
+  onClose: () => void;
+}) {
+  const [title, setTitle]   = useState(task.title);
+  const [dueDate, setDueDate] = useState(task.dueDate ?? "");
+  const [tag, setTag]       = useState<TaskTag>(task.tag);
+
+  const subtasks = store.tasks
+    .filter((t) => t.parentId === task.id)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const project = store.projects.find((p) => p.id === task.projectId);
+
+  const persist = (extra?: Partial<Task>) => {
+    store.updateTask(task.id, {
+      title: title.trim() || task.title,
+      dueDate: dueDate || null,
+      tag,
+      tagDueDate: tag === "acompanhamento" ? task.tagDueDate : null,
+      ...extra,
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-paper border border-hairline w-full sm:max-w-[480px] max-h-[90vh] flex flex-col shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between px-4 py-3 border-b border-hairline shrink-0">
+          <div className="min-w-0 pr-2">
+            {project && (
+              <p className="text-[9px] uppercase tracking-wider text-muted mb-0.5">
+                {project.code ? `${project.code} · ` : ""}{project.name}
+              </p>
+            )}
+            <h3 className="text-[13px] font-semibold leading-tight truncate">{task.title}</h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 text-muted hover:text-ink text-[20px] leading-none px-1"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-muted block mb-1">Título</label>
+            <input
+              className="ink-input w-full"
+              value={title}
+              autoFocus
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => persist()}
+            />
+          </div>
+
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-muted block mb-1">Data</label>
+            <input
+              type="date"
+              className="ink-input w-full"
+              value={dueDate}
+              onChange={(e) => {
+                setDueDate(e.target.value);
+                persist({ dueDate: e.target.value || null });
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-muted block mb-1">Classificação</label>
+            <select
+              className="ink-input w-full"
+              value={tag ?? ""}
+              onChange={(e) => {
+                const t = (e.target.value as TaskTag) || null;
+                setTag(t);
+                persist({ tag: t, tagDueDate: null });
+              }}
+            >
+              <option value="">sem classificação</option>
+              <option value="prioridade">⭐ Prioridade</option>
+              <option value="rapida">⚡ Tarefa Rápida</option>
+              <option value="acompanhamento">👁 Acompanhamento</option>
+              <option value="atividade">📋 Atividade</option>
+              <option value="agenda">🗓 Agenda</option>
+            </select>
+          </div>
+
+          {/* Subtasks */}
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-muted block mb-2">
+              Subtarefas{subtasks.length > 0 ? ` (${subtasks.length})` : ""}
+            </label>
+            <AddInline
+              placeholder="+ nova subtarefa… (Enter para salvar)"
+              onAdd={(v) => store.addTask(task.projectId, task.id, v)}
+            />
+            {subtasks.length > 0 && (
+              <div className="mt-2 space-y-0.5">
+                {subtasks.map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="flex items-center gap-2 py-1 border-b border-hairline group/sub"
+                  >
+                    <InkCheck
+                      state={sub.done ? "done" : "open"}
+                      onToggle={() => store.toggleTask(sub.id, !sub.done)}
+                    />
+                    <span className={`flex-1 text-[11px] ${sub.done ? "line-through text-muted" : ""}`}>
+                      {sub.title}
+                    </span>
+                    <button
+                      className="text-[11px] text-alert opacity-0 group-hover/sub:opacity-100 transition-opacity"
+                      onClick={() => { if (confirm(`Excluir "${sub.title}"?`)) store.deleteTask(sub.id); }}
+                      title="Excluir subtarefa"
+                    >
+                      🗑
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-3 border-t border-hairline shrink-0 flex gap-2">
+          <button
+            className="ink-btn flex-1 text-[11px]"
+            onClick={() => {
+              persist();
+              store.toggleTask(task.id, !task.done);
+              onClose();
+            }}
+          >
+            {task.done ? "↩ reabrir" : "✓ concluir"}
+          </button>
+          <button
+            className="text-[11px] px-3 py-1.5 border border-alert text-alert hover:bg-alert/10 transition-colors"
+            onClick={() => {
+              if (confirm(`Excluir "${task.title}"?`)) { store.deleteTask(task.id); onClose(); }
+            }}
+          >
+            🗑 excluir
+          </button>
+          <button
+            className="ink-btn ink-btn-solid text-[11px]"
+            onClick={() => { persist(); onClose(); }}
+          >
+            salvar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Add task modal ────────────────────────────────────────────────────────────
+function AddTaskModal({
+  store,
+  defaultDate,
+  onClose,
+}: {
+  store: AppStore;
+  defaultDate: string;
+  onClose: () => void;
+}) {
+  const allPlanners = useMemo(() => {
+    const named = loadPlanners();
+    const hidden = isDefaultPlannerHidden();
+    const list: { id: string | null; name: string; emoji: string; workspace: "trabalho" | "pessoal" }[] = [];
+    if (!hidden) {
+      const meta = loadDefaultPlannerMeta();
+      list.push({ id: null, name: meta.name, emoji: meta.emoji, workspace: "trabalho" });
+    }
+    named.forEach((p) => list.push({ id: p.id, name: p.name, emoji: p.emoji, workspace: p.workspace }));
+    return list;
+  }, []);
+
+  const [title, setTitle]       = useState("");
+  const [dueDate, setDueDate]   = useState(defaultDate);
+  const [tag, setTag]           = useState<TaskTag>(null);
+  const [plannerIdx, setPlannerIdx] = useState(0);
+  const [projectId, setProjectId]   = useState("");
+
+  const selectedWs = allPlanners[plannerIdx]?.workspace ?? "trabalho";
+
+  const availableProjects = useMemo(
+    () => store.projects.filter((p) => !p.archived && p.workspace === selectedWs && p.kind !== "objetivo"),
+    [store.projects, selectedWs]
+  );
+
+  useEffect(() => {
+    setProjectId(availableProjects[0]?.id ?? "");
+  }, [selectedWs, availableProjects]);
+
+  const save = () => {
+    if (!title.trim() || !projectId) return;
+    store.addTask(projectId, null, title.trim(), dueDate || null, tag);
+    onClose();
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="bg-paper border border-hairline w-full max-w-md p-5 shadow-2xl mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-[13px] font-semibold uppercase tracking-wider">Nova Tarefa</h3>
+          <button onClick={onClose} className="text-muted hover:text-ink text-[20px] leading-none">×</button>
+        </div>
+
+        <form onSubmit={(e) => { e.preventDefault(); save(); }} className="space-y-3">
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-muted block mb-1">Nome da tarefa</label>
+            <input
+              className="ink-input w-full"
+              placeholder="o que precisa ser feito?"
+              value={title}
+              autoFocus
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+
+          {allPlanners.length > 0 && (
+            <div>
+              <label className="text-[9px] uppercase tracking-wider text-muted block mb-1">Planner</label>
+              <select
+                className="ink-input w-full"
+                value={plannerIdx}
+                onChange={(e) => setPlannerIdx(Number(e.target.value))}
+              >
+                {allPlanners.map((p, i) => (
+                  <option key={String(p.id)} value={i}>
+                    {p.emoji} {p.name} · {p.workspace === "trabalho" ? "profissional" : "pessoal"}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-muted block mb-1">Projeto</label>
+            <select
+              className="ink-input w-full"
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              disabled={availableProjects.length === 0}
+            >
+              {availableProjects.length === 0 ? (
+                <option value="">nenhum projeto neste planner</option>
+              ) : (
+                availableProjects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.code ? `${p.code} · ` : ""}{p.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-muted block mb-1">Data</label>
+            <input
+              type="date"
+              className="ink-input w-full"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="text-[9px] uppercase tracking-wider text-muted block mb-1">Classificação</label>
+            <select
+              className="ink-input w-full"
+              value={tag ?? ""}
+              onChange={(e) => setTag((e.target.value as TaskTag) || null)}
+            >
+              <option value="">sem classificação</option>
+              <option value="prioridade">⭐ Prioridade</option>
+              <option value="rapida">⚡ Tarefa Rápida</option>
+              <option value="acompanhamento">👁 Acompanhamento</option>
+              <option value="atividade">📋 Atividade</option>
+              <option value="agenda">🗓 Agenda</option>
+            </select>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" className="ink-btn flex-1" onClick={onClose}>cancelar</button>
+            <button
+              type="submit"
+              className="ink-btn ink-btn-solid flex-1"
+              disabled={!title.trim() || !projectId}
+            >
+              criar tarefa
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ── Visão Semanal — tela cheia ────────────────────────────────────────────────
 function WeeklyView({ store }: { store: AppStore }) {
   const today = todayISO();
   const [weekStart, setWeekStart] = useState(() => mondayOf(today));
   const [tagFilter, setTagFilter] = useState<TaskTag | "all">("all");
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [addingForDay, setAddingForDay] = useState<string | null>(null);
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const weekEnd = days[6];
@@ -153,43 +473,43 @@ function WeeklyView({ store }: { store: AppStore }) {
     [store.projects]
   );
 
-  // Tasks with dueDate in current week (undone by default shown, done tasks shown dimmed)
-  const weekTasks = useMemo(() => {
-    return store.tasks.filter(
-      (t) =>
-        t.dueDate &&
-        t.dueDate >= weekStart &&
-        t.dueDate <= weekEnd &&
-        (tagFilter === "all" || t.tag === tagFilter)
-    );
-  }, [store.tasks, weekStart, weekEnd, tagFilter]);
+  const weekTasks = useMemo(
+    () =>
+      store.tasks.filter(
+        (t) =>
+          t.dueDate &&
+          t.dueDate >= weekStart &&
+          t.dueDate <= weekEnd &&
+          (tagFilter === "all" || t.tag === tagFilter)
+      ),
+    [store.tasks, weekStart, weekEnd, tagFilter]
+  );
+
+  // Keep selectedTask in sync — so edits in the modal reflect immediately
+  const selectedTask = selectedTaskId
+    ? store.tasks.find((t) => t.id === selectedTaskId) ?? null
+    : null;
 
   const prevWeek = () => setWeekStart((w) => addDays(w, -7));
   const nextWeek = () => setWeekStart((w) => addDays(w, 7));
   const thisWeek = () => setWeekStart(mondayOf(today));
-
   const isThisWeek = weekStart === mondayOf(today);
 
   const TAG_FILTERS: { value: TaskTag | "all"; label: string }[] = [
-    { value: "all",         label: "Todas" },
-    { value: "prioridade",  label: "⭐ Prioridade" },
-    { value: "atividade",   label: "📋 Atividade" },
-    { value: "acompanhamento", label: "👁 Acompanhamento" },
-    { value: "rapida",      label: "⚡ Rápida" },
-    { value: "agenda",      label: "🗓 Agenda" },
+    { value: "all",            label: "Todas" },
+    { value: "prioridade",     label: "⭐ Prior." },
+    { value: "atividade",      label: "📋 Ativ." },
+    { value: "acompanhamento", label: "👁 Acomp." },
+    { value: "rapida",         label: "⚡ Rápida" },
+    { value: "agenda",         label: "🗓 Agenda" },
   ];
 
   return (
-    <div className="space-y-4">
-      {/* Controls */}
-      <div className="bg-paper border border-hairline px-4 py-3 flex flex-wrap items-center gap-3">
+    <div className="flex flex-col h-full">
+      {/* Toolbar */}
+      <div className="bg-paper border-b border-hairline px-3 py-2 flex flex-wrap items-center gap-2 shrink-0">
         <div className="flex items-center gap-1">
-          <button
-            className="ink-btn text-[10px] px-2.5 py-1"
-            onClick={prevWeek}
-          >
-            ← ant.
-          </button>
+          <button className="ink-btn text-[10px] px-2 py-1" onClick={prevWeek}>← ant.</button>
           <button
             className={`text-[10px] px-3 py-1 border transition-colors ${
               isThisWeek ? "bg-ink text-paper border-ink" : "border-hairline hover:bg-tan-soft"
@@ -198,15 +518,10 @@ function WeeklyView({ store }: { store: AppStore }) {
           >
             esta semana
           </button>
-          <button
-            className="ink-btn text-[10px] px-2.5 py-1"
-            onClick={nextWeek}
-          >
-            próx. →
-          </button>
+          <button className="ink-btn text-[10px] px-2 py-1" onClick={nextWeek}>próx. →</button>
         </div>
 
-        <span className="text-[11px] font-medium text-muted">
+        <span className="text-[10px] text-muted font-medium tabular-nums">
           {fmtShort(weekStart)} – {fmtShort(weekEnd)}
         </span>
 
@@ -214,7 +529,7 @@ function WeeklyView({ store }: { store: AppStore }) {
           {TAG_FILTERS.map(({ value, label }) => (
             <button
               key={String(value)}
-              className={`text-[9px] uppercase tracking-wider px-2 py-1 border transition-colors ${
+              className={`text-[9px] uppercase tracking-wider px-2 py-0.5 border transition-colors ${
                 tagFilter === value
                   ? "bg-ink text-paper border-ink"
                   : "border-hairline hover:bg-tan-soft"
@@ -227,101 +542,137 @@ function WeeklyView({ store }: { store: AppStore }) {
         </div>
       </div>
 
-      {/* Week grid */}
-      <div className="grid grid-cols-7 gap-px bg-hairline border border-hairline overflow-x-auto">
+      {/* Full-height calendar grid */}
+      <div className="flex-1 grid grid-cols-7 gap-px bg-hairline overflow-hidden min-h-0">
         {days.map((day) => {
           const isToday = day === today;
           const isPast  = day < today;
           const dayTasks = weekTasks.filter((t) => t.dueDate === day);
+          const doneCnt  = dayTasks.filter((t) => t.done).length;
 
           return (
             <div
               key={day}
-              className={`bg-paper min-h-[160px] flex flex-col ${
-                isToday ? "bg-tan-soft/60" : ""
-              }`}
+              className={`flex flex-col overflow-hidden ${isToday ? "bg-tan-soft/50" : "bg-paper"}`}
             >
               {/* Day header */}
               <div
-                className={`px-2 py-1.5 border-b border-hairline sticky top-0 ${
-                  isToday ? "bg-ink text-paper" : "bg-paper"
+                className={`px-2 py-2 shrink-0 flex items-start justify-between border-b border-hairline ${
+                  isToday ? "bg-ink" : "bg-paper"
                 }`}
               >
-                <p className={`text-[9px] uppercase tracking-wider font-semibold ${
-                  isToday ? "text-paper" : isPast ? "text-muted" : "text-ink"
-                }`}>
-                  {WEEKDAYS_PT[days.indexOf(day)]}
-                </p>
-                <p className={`text-[11px] font-medium tabular-nums ${
-                  isToday ? "text-paper" : isPast ? "text-muted" : "text-ink"
-                }`}>
-                  {fmtShort(day)}
-                </p>
+                <div>
+                  <p className={`text-[9px] uppercase tracking-wider font-bold ${
+                    isToday ? "text-paper" : isPast ? "text-muted" : "text-ink"
+                  }`}>
+                    {WEEKDAYS_PT[days.indexOf(day)]}
+                  </p>
+                  <p className={`text-[13px] font-semibold tabular-nums ${
+                    isToday ? "text-paper" : isPast ? "text-muted" : "text-ink"
+                  }`}>
+                    {fmtShort(day)}
+                  </p>
+                  {dayTasks.length > 0 && (
+                    <p className={`text-[8px] tabular-nums mt-0.5 ${isToday ? "text-paper/60" : "text-muted"}`}>
+                      {doneCnt}/{dayTasks.length} ✓
+                    </p>
+                  )}
+                </div>
+                <button
+                  className={`text-[18px] leading-none mt-0.5 px-0.5 transition-opacity hover:opacity-100 ${
+                    isToday ? "text-paper/70" : "text-muted opacity-50"
+                  }`}
+                  onClick={() => setAddingForDay(day)}
+                  title="Adicionar tarefa"
+                >
+                  +
+                </button>
               </div>
 
-              {/* Tasks */}
-              <div className="flex-1 px-1.5 py-1 space-y-1 overflow-y-auto max-h-[320px]">
-                {dayTasks.length === 0 && (
-                  <p className="text-[9px] text-muted font-serif-note py-1 px-0.5">—</p>
-                )}
+              {/* Task list — scrollable */}
+              <div className="flex-1 min-h-0 overflow-y-auto py-1 px-1 space-y-0.5">
                 {dayTasks.map((task) => {
                   const proj = projectMap.get(task.projectId);
                   const tagMeta = task.tag ? WEEK_TAG_META[task.tag] : null;
                   const overdue = !task.done && task.dueDate! < today;
+
                   return (
                     <div
                       key={task.id}
-                      className={`flex items-start gap-1 p-1 rounded text-[10px] leading-tight ${
-                        task.done ? "opacity-40" : overdue ? "bg-alert/5" : ""
+                      className={`px-1.5 py-1 border cursor-pointer transition-colors hover:border-ink/30 ${
+                        task.done
+                          ? "opacity-50 border-hairline"
+                          : overdue
+                          ? "border-alert/40 bg-alert/5"
+                          : "border-hairline hover:bg-tan-soft/30"
                       }`}
+                      onClick={() => setSelectedTaskId(task.id)}
                     >
-                      <InkCheck
-                        state={task.done ? "done" : "open"}
-                        onToggle={() => store.toggleTask(task.id, !task.done)}
-                        title={task.done ? "Desmarcar" : "Concluir"}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className={`truncate text-[10px] ${
-                          task.done ? "line-through text-muted" : overdue ? "text-alert font-medium" : "text-ink"
+                      <div className="flex items-start gap-1">
+                        <span
+                          className="shrink-0"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <InkCheck
+                            state={task.done ? "done" : "open"}
+                            onToggle={() => store.toggleTask(task.id, !task.done)}
+                          />
+                        </span>
+                        <p className={`flex-1 text-[10px] leading-snug min-w-0 ${
+                          task.done
+                            ? "line-through text-muted"
+                            : overdue
+                            ? "text-alert font-medium"
+                            : "text-ink"
                         }`}>
                           {task.title}
                         </p>
-                        {proj && (
-                          <p className="text-[8px] uppercase tracking-wider text-muted truncate">
-                            {proj.code ? `${proj.code}` : proj.name}
-                          </p>
-                        )}
-                        {tagMeta && (
-                          <span
-                            className="inline-block text-[7px] uppercase tracking-wider px-1 py-px font-medium mt-0.5"
-                            style={{ background: tagMeta.bg, color: tagMeta.color }}
-                          >
-                            {tagMeta.label}
-                          </span>
-                        )}
                       </div>
+                      {proj && (
+                        <p className="text-[8px] uppercase tracking-wider text-muted truncate pl-5 mt-0.5">
+                          {proj.code ?? proj.name}
+                        </p>
+                      )}
+                      {tagMeta && (
+                        <span
+                          className="inline-block ml-5 mt-0.5 text-[7px] uppercase tracking-wider px-1 py-px font-medium"
+                          style={{ background: tagMeta.bg, color: tagMeta.color }}
+                        >
+                          {tagMeta.label}
+                        </span>
+                      )}
                     </div>
                   );
                 })}
-              </div>
 
-              {/* Task count footer */}
-              {dayTasks.length > 0 && (
-                <div className="px-2 py-1 border-t border-hairline">
-                  <span className="text-[8px] text-muted tabular-nums">
-                    {dayTasks.filter((t) => t.done).length}/{dayTasks.length} ✓
-                  </span>
-                </div>
-              )}
+                {/* Inline add button */}
+                <button
+                  className="w-full py-1.5 text-[11px] text-muted hover:text-ink border border-dashed border-hairline/60 hover:border-hairline transition-colors"
+                  onClick={() => setAddingForDay(day)}
+                  title="Adicionar tarefa neste dia"
+                >
+                  +
+                </button>
+              </div>
             </div>
           );
         })}
       </div>
 
-      {weekTasks.length === 0 && (
-        <p className="text-center text-[11px] font-serif-note text-muted py-8">
-          Nenhuma tarefa com vencimento nesta semana.
-        </p>
+      {/* Modals */}
+      {selectedTask && (
+        <TaskDetailModal
+          task={selectedTask}
+          store={store}
+          onClose={() => setSelectedTaskId(null)}
+        />
+      )}
+      {addingForDay && (
+        <AddTaskModal
+          store={store}
+          defaultDate={addingForDay}
+          onClose={() => setAddingForDay(null)}
+        />
       )}
     </div>
   );
@@ -446,9 +797,9 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
     .filter((e) => e.tasks.length > 0);
 
   return (
-    <main className="min-h-screen bg-kraft">
+    <main className="min-h-screen bg-kraft flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-30 bg-paper border-b border-hairline px-4 sm:px-8 py-3 flex items-center gap-3">
+      <header className="sticky top-0 z-30 bg-paper border-b border-hairline px-4 sm:px-8 py-3 flex items-center gap-3 shrink-0">
         <a href="/" className="ink-btn py-1.5">← Planner</a>
         <h1 className="flex-1 text-[11px] uppercase tracking-[0.3em] font-semibold">
           📊 Painel Gerencial
@@ -481,13 +832,16 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
         </button>
       </header>
 
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-8 py-8 space-y-8">
+      {/* Visão Semanal — full-screen, no max-width */}
+      {activeTab === "visao-semanal" && (
+        <div className="flex-1 min-h-0 flex flex-col">
+          <WeeklyView store={store} />
+        </div>
+      )}
 
-        {/* Visão Semanal tab */}
-        {activeTab === "visao-semanal" && <WeeklyView store={store} />}
-
-        {/* Relatório tab */}
-        {activeTab === "relatorio" && <>
+      {/* Relatório tab — constrained width */}
+      {activeTab === "relatorio" && (
+      <div className="max-w-[1200px] mx-auto w-full px-4 sm:px-8 py-8 space-y-8">
 
         {/* Filtros */}
         <div className="bg-paper border border-hairline px-4 py-3 flex flex-wrap items-center gap-3">
@@ -859,8 +1213,8 @@ function Painel({ mode }: { mode: "mock" | "supabase" }) {
           </p>
         </footer>
 
-        </> /* end relatorio tab */}
       </div>
+      )}
     </main>
   );
 }

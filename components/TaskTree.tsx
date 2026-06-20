@@ -306,9 +306,9 @@ function TaskRow({
               </button>
             )}
 
-            <span className="row-actions flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="row-actions flex gap-1 shrink-0 opacity-20 group-hover:opacity-100 transition-opacity">
               <RowBtn label="+" title="Adicionar subtarefa" onClick={() => { setAdding((v) => !v); setExpanded(true); }} />
-              <RowBtn label="✎" title="Editar título, data e classificação" onClick={() => setEditing(true)} />
+              <RowBtn label="✏️" title="Editar título, data e classificação" onClick={() => setEditing(true)} />
               <RowBtn
                 label="🗑"
                 title="Excluir tarefa (e todas as subtarefas)"
