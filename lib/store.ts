@@ -9,6 +9,7 @@ import type {
   Project,
   QuickWin,
   Task,
+  TaskNote,
 } from "./types";
 import {
   mockFollowups,
@@ -48,6 +49,7 @@ const LK = {
   priorities: "planner_priorities_v1",
   followups:  "planner_followups_v1",
   goals:      "planner_goals_v1",
+  taskNotes:  "planner_tasknotes_v1",
 } as const;
 
 function saveLocal<T>(key: string, data: T): void {
@@ -80,6 +82,11 @@ export interface AppStore {
   addProject: (data: Omit<Project, "id" | "createdAt" | "updatedAt">) => void;
   updateProject: (id: string, patch: Partial<Project>) => void;
   deleteProject: (id: string) => void;
+
+  taskNotes: TaskNote[];
+  addTaskNote: (taskId: string, content: string) => void;
+  updateTaskNote: (id: string, content: string) => void;
+  deleteTaskNote: (id: string) => void;
 
   addTask: (projectId: string, parentId: string | null, title: string, dueDate?: string | null, tag?: Task["tag"]) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
@@ -130,6 +137,9 @@ export function useAppStore(mode: StoreMode): AppStore {
   const [goals, setGoals] = useState<MonthlyGoal[]>(() =>
     loadLocal(LK.goals, db ? ([] as MonthlyGoal[]) : mockGoals)
   );
+  const [taskNotes, setTaskNotes] = useState<TaskNote[]>(() =>
+    loadLocal(LK.taskNotes, [] as TaskNote[])
+  );
 
   // Espelhos do estado atual, para as ações que precisam calcular algo
   // (ex.: marcar todas as subtarefas) sem depender de estado desatualizado.
@@ -145,6 +155,10 @@ export function useAppStore(mode: StoreMode): AppStore {
   useEffect(() => {
     goalsRef.current = goals;
   }, [goals]);
+  const taskNotesRef = useRef(taskNotes);
+  useEffect(() => {
+    taskNotesRef.current = taskNotes;
+  }, [taskNotes]);
 
   // Carga inicial vinda do banco (modo supabase).
   // Reconcilia com o localStorage: não sobrescreve dados locais mais novos,
@@ -215,6 +229,12 @@ export function useAppStore(mode: StoreMode): AppStore {
         saveLocal(LK.followups, data.followups);
         setGoals(data.goals);
         saveLocal(LK.goals, data.goals);
+
+        // task_notes: se a tabela ainda não existir, data.taskNotes === null; mantém local
+        if (data.taskNotes !== null) {
+          setTaskNotes(data.taskNotes);
+          saveLocal(LK.taskNotes, data.taskNotes);
+        }
 
         setLoading(false);
       })
@@ -295,7 +315,33 @@ export function useAppStore(mode: StoreMode): AppStore {
   const deleteTask: AppStore["deleteTask"] = useCallback((id) => {
     const idSet = new Set([id, ...descendantIds(tasksRef.current, id)]);
     setTasks((ts) => { const n = ts.filter((x) => !idSet.has(x.id)); saveLocal(LK.tasks, n); return n; });
+    setTaskNotes((ns) => { const n = ns.filter((x) => !idSet.has(x.taskId)); saveLocal(LK.taskNotes, n); return n; });
     db?.from("tasks").delete().eq("id", id).then(logDbError("excluir tarefa"));
+  }, [db]);
+
+  const addTaskNote: AppStore["addTaskNote"] = useCallback((taskId, content) => {
+    const t = nowISO();
+    const existing = taskNotesRef.current.find((n) => n.taskId === taskId);
+    if (existing) {
+      const updated = { ...existing, content, updatedAt: t };
+      setTaskNotes((ns) => { const n = ns.map((x) => (x.id === existing.id ? updated : x)); saveLocal(LK.taskNotes, n); return n; });
+      db?.from("task_notes").update({ content, updated_at: t }).eq("id", existing.id).then(logDbError("atualizar anotação"));
+    } else {
+      const note: TaskNote = { id: uid(), taskId, content, createdAt: t, updatedAt: t };
+      setTaskNotes((ns) => { const n = [...ns, note]; saveLocal(LK.taskNotes, n); return n; });
+      db?.from("task_notes").insert({ id: note.id, task_id: taskId, content, created_at: t, updated_at: t }).then(logDbError("criar anotação"));
+    }
+  }, [db]);
+
+  const updateTaskNote: AppStore["updateTaskNote"] = useCallback((id, content) => {
+    const t = nowISO();
+    setTaskNotes((ns) => { const n = ns.map((x) => (x.id === id ? { ...x, content, updatedAt: t } : x)); saveLocal(LK.taskNotes, n); return n; });
+    db?.from("task_notes").update({ content, updated_at: t }).eq("id", id).then(logDbError("editar anotação"));
+  }, [db]);
+
+  const deleteTaskNote: AppStore["deleteTaskNote"] = useCallback((id) => {
+    setTaskNotes((ns) => { const n = ns.filter((x) => x.id !== id); saveLocal(LK.taskNotes, n); return n; });
+    db?.from("task_notes").delete().eq("id", id).then(logDbError("excluir anotação"));
   }, [db]);
 
   const addQuickWin: AppStore["addQuickWin"] = useCallback((data) => {
@@ -423,6 +469,7 @@ export function useAppStore(mode: StoreMode): AppStore {
   return {
     loading, loadError,
     projects, tasks, quickWins, priorities, followups, goals,
+    taskNotes, addTaskNote, updateTaskNote, deleteTaskNote,
     addProject, updateProject, deleteProject,
     addTask, updateTask, toggleTask, deleteTask,
     addQuickWin, toggleQuickWin, deleteQuickWin,

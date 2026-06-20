@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { TaskNote } from "@/lib/types";
 import {
   DndContext,
   closestCenter,
@@ -126,6 +127,72 @@ function SortableTaskRow({ node, store }: { node: TaskNode; store: AppStore }) {
   );
 }
 
+// ── Note popup (post-it) ─────────────────────────────────────────────────────
+
+function NotePopup({
+  taskId,
+  note,
+  store,
+  onClose,
+}: {
+  taskId: string;
+  note: TaskNote | undefined;
+  store: AppStore;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState(note?.content ?? "");
+
+  function handleSave() {
+    const trimmed = text.trim();
+    if (trimmed) {
+      note ? store.updateTaskNote(note.id, trimmed) : store.addTaskNote(taskId, trimmed);
+    } else if (note) {
+      store.deleteTaskNote(note.id);
+    }
+    onClose();
+  }
+
+  return (
+    <div className="p-2.5 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+      <p className="text-[9px] uppercase tracking-wider text-muted">Anotação</p>
+      <textarea
+        className="w-full text-[11px] p-1.5 resize-none border border-tan/60 bg-transparent outline-none leading-relaxed"
+        rows={4}
+        placeholder="Escreva uma anotação…"
+        value={text}
+        autoFocus
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSave();
+          if (e.key === "Escape") onClose();
+        }}
+      />
+      <div className="flex gap-1 justify-end">
+        {note && (
+          <button
+            className="text-[10px] text-alert px-1.5 py-0.5 border border-alert/30 hover:bg-alert/10 transition-colors"
+            onClick={() => { store.deleteTaskNote(note.id); onClose(); }}
+          >
+            excluir
+          </button>
+        )}
+        <button
+          className="text-[10px] text-muted px-1.5 py-0.5 border border-hairline hover:text-ink transition-colors"
+          onClick={onClose}
+        >
+          cancelar
+        </button>
+        <button
+          className="text-[10px] text-paper bg-ink px-2 py-0.5 hover:opacity-80 transition-opacity"
+          onClick={handleSave}
+        >
+          salvar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Task row ──────────────────────────────────────────────────────────────────
 
 function TaskRow({
@@ -143,12 +210,14 @@ function TaskRow({
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [expanded, setExpanded] = useState(true);
+  const [notePinned, setNotePinned] = useState(false);
 
   const [title, setTitle]   = useState(task.title);
   const [due, setDue]       = useState(task.dueDate ?? "");
   const [tag, setTag]       = useState<TaskTag>(task.tag);
   const [tagDue, setTagDue] = useState(task.tagDueDate ?? "");
 
+  const taskNote = store.taskNotes.find((n) => n.taskId === task.id);
   const state   = nodeState(node);
   const today   = todayISO();
   const overdue = !task.done && task.dueDate !== null && task.dueDate < today;
@@ -157,9 +226,42 @@ function TaskRow({
   return (
     <div>
       <div
-        className="group flex items-center gap-1.5 py-[3px] hairline-b"
+        className="relative group flex items-center gap-1.5 py-[3px] hairline-b"
         style={{ paddingLeft: depth * 14 }}
       >
+        {/* ── Indicador de anotação: triângulo no canto superior direito ── */}
+        {taskNote && (
+          <div className="absolute top-0 right-0 z-20 group/noteind" style={{ width: 10 }}>
+            <div
+              className="w-[10px] h-[10px] cursor-pointer"
+              style={{ background: "var(--ink)", clipPath: "polygon(0 0, 100% 0, 100% 100%)" }}
+              onClick={(e) => { e.stopPropagation(); setNotePinned(true); }}
+            />
+            {!notePinned && (
+              <div
+                className="hidden group-hover/noteind:block absolute right-0 z-50 w-52 shadow-md border border-tan/50 p-2 text-[11px] cursor-default select-text"
+                style={{ background: "var(--tan-soft)", top: 10 }}
+                onClick={(e) => { e.stopPropagation(); setNotePinned(true); }}
+              >
+                <p className="text-ink/80 whitespace-pre-wrap break-words leading-relaxed">{taskNote.content}</p>
+                <p className="text-[9px] text-muted/60 mt-1.5 italic">clique para editar</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Popup de edição (fixado ao clicar) ── */}
+        {notePinned && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setNotePinned(false)} />
+            <div
+              className="absolute top-full right-0 z-50 w-56 shadow-lg border border-tan/60"
+              style={{ background: "var(--tan-soft)" }}
+            >
+              <NotePopup taskId={task.id} note={taskNote} store={store} onClose={() => setNotePinned(false)} />
+            </div>
+          </>
+        )}
         {depth > 0 && (
           <span className="text-hairline text-[10px] shrink-0">└</span>
         )}
@@ -308,6 +410,7 @@ function TaskRow({
 
             <span className="row-actions flex gap-1 shrink-0 opacity-20 group-hover:opacity-100 transition-opacity">
               <RowBtn label="+" title="Adicionar subtarefa" onClick={() => { setAdding((v) => !v); setExpanded(true); }} />
+              <RowBtn label="📝" title={taskNote ? "Editar anotação" : "Adicionar anotação"} onClick={() => setNotePinned(true)} />
               <RowBtn label="✏️" title="Editar título, data e classificação" onClick={() => setEditing(true)} />
               <RowBtn
                 label="🗑"

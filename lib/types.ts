@@ -95,3 +95,11 @@ export interface MonthlyGoal {
   goal: string;
   how: string;
 }
+
+export interface TaskNote {
+  id: string;
+  taskId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}

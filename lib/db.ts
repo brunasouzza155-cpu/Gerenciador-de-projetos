@@ -8,6 +8,7 @@ import type {
   ProjectStatus,
   QuickWin,
   Task,
+  TaskNote,
   Workspace,
 } from "./types";
 
@@ -86,6 +87,14 @@ interface MonthlyGoalRow {
   how: string;
 }
 
+interface TaskNoteRow {
+  id: string;
+  task_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
 const projectFromRow = (r: ProjectRow): Project => ({
   id: r.id,
   workspace: r.workspace,
@@ -149,6 +158,14 @@ const goalFromRow = (r: MonthlyGoalRow): MonthlyGoal => ({
   month: r.month,
   goal: r.goal,
   how: r.how,
+});
+
+const taskNoteFromRow = (r: TaskNoteRow): TaskNote => ({
+  id: r.id,
+  taskId: r.task_id,
+  content: r.content,
+  createdAt: r.created_at,
+  updatedAt: r.updated_at,
 });
 
 // Converte um pedaço de Project/Task/etc. para as colunas do banco.
@@ -218,12 +235,13 @@ export interface AllData {
   priorities: Priority[];
   followups: Followup[];
   goals: MonthlyGoal[];
+  taskNotes: TaskNote[] | null; // null = tabela ainda não existe no Supabase
 }
 
 /** Carrega tudo da usuária logada (o RLS garante que só vem o que é dela). */
 export async function fetchAll(): Promise<AllData> {
   if (!supabase) throw new Error("Supabase não configurado");
-  const [projects, tasks, quickWins, priorities, followups, goals] =
+  const [projects, tasks, quickWins, priorities, followups, goals, taskNotesResult] =
     await Promise.all([
       supabase.from("projects").select("*").order("priority_order").order("created_at"),
       supabase.from("tasks").select("*").order("sort_order"),
@@ -231,6 +249,8 @@ export async function fetchAll(): Promise<AllData> {
       supabase.from("priorities").select("*"),
       supabase.from("followups").select("*"),
       supabase.from("monthly_goals").select("*"),
+      // task_notes é opcional: se a tabela ainda não existir, retorna null em vez de lançar erro
+      supabase.from("task_notes").select("*").then((r) => r),
     ]);
   const fail =
     projects.error ?? tasks.error ?? quickWins.error ?? priorities.error ??
@@ -243,6 +263,9 @@ export async function fetchAll(): Promise<AllData> {
     priorities: (priorities.data as PriorityRow[]).map(priorityFromRow),
     followups: (followups.data as FollowupRow[]).map(followupFromRow),
     goals: (goals.data as MonthlyGoalRow[]).map(goalFromRow),
+    taskNotes: taskNotesResult.error
+      ? null
+      : (taskNotesResult.data as TaskNoteRow[]).map(taskNoteFromRow),
   };
 }
 
